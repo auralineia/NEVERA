@@ -1,3 +1,17 @@
+function bucket(value) {
+  if (value < 0.85) return "LOW";
+  if (value > 1.15) return "HIGH";
+  return "NORMAL";
+}
+
+function patternKey({ category, demand = 1, competition = 1 } = {}) {
+  return [
+    category ?? "UNKNOWN",
+    bucket(demand),
+    bucket(competition)
+  ].join(":");
+}
+
 export class Learning {
   constructor(initialResults = []) {
     this.results = initialResults;
@@ -7,6 +21,8 @@ export class Learning {
     this.results.push({
       opportunity: opportunity.name,
       category: opportunity.category,
+      demand: opportunity.demand ?? opportunity.marketContext?.demand ?? 1,
+      competition: opportunity.competition ?? opportunity.marketContext?.competition ?? 1,
       status: outcome.status,
       net: outcome.net,
       timestamp: new Date().toISOString()
@@ -17,7 +33,7 @@ export class Learning {
     const total = this.results.length;
     const successes = this.results.filter((item) => item.status === "SUCCESS").length;
     const net = Number(
-      this.results.reduce((sum, item) => sum + item.net, 0).toFixed(2)
+      this.results.reduce((sum, item) => sum + (item.net ?? 0), 0).toFixed(2)
     );
 
     return {
@@ -49,6 +65,55 @@ export class Learning {
       net,
       averageNet: attempts ? Number((net / attempts).toFixed(2)) : 0
     };
+  }
+
+  patternStats({ category, demand = null, competition = null } = {}) {
+    const results = this.results.filter((item) => {
+      if (category && item.category !== category) return false;
+      if (demand !== null && bucket(item.demand ?? 1) !== bucket(demand)) return false;
+      if (competition !== null && bucket(item.competition ?? 1) !== bucket(competition)) return false;
+      return true;
+    });
+
+    const attempts = results.length;
+    const successes = results.filter((item) => item.status === "SUCCESS").length;
+    const net = Number(results.reduce((sum, item) => sum + (item.net ?? 0), 0).toFixed(2));
+
+    return {
+      key: patternKey({ category, demand: demand ?? 1, competition: competition ?? 1 }),
+      category,
+      demand: demand === null ? null : bucket(demand),
+      competition: competition === null ? null : bucket(competition),
+      attempts,
+      successes,
+      failures: attempts - successes,
+      successRate: attempts ? Number((successes / attempts).toFixed(4)) : 0,
+      averageNet: attempts ? Number((net / attempts).toFixed(2)) : 0,
+      net
+    };
+  }
+
+  patterns(minAttempts = 1) {
+    const keys = new Set(
+      this.results.map((item) =>
+        patternKey({
+          category: item.category,
+          demand: item.demand ?? 1,
+          competition: item.competition ?? 1
+        })
+      )
+    );
+
+    return [...keys]
+      .map((key) => {
+        const [category, demand, competition] = key.split(":");
+        return this.patternStats({
+          category,
+          demand: demand === "LOW" ? 0.8 : demand === "HIGH" ? 1.2 : 1,
+          competition: competition === "LOW" ? 0.8 : competition === "HIGH" ? 1.2 : 1
+        });
+      })
+      .filter((item) => item.attempts >= minAttempts);
   }
 
   categories() {
