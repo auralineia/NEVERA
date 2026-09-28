@@ -15,6 +15,7 @@ import { calculateMetrics } from "./metrics.js";
 import { DecisionLedger } from "./decision-ledger.js";
 import { ExperimentManager } from "./experiments.js";
 import { HypothesisEngine } from "./hypotheses.js";
+import { AdaptationEngine } from "./adaptation.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -31,6 +32,7 @@ const portfolio = new StrategyPortfolio(undefined, 3, saved?.strategies ?? []);
 const ledger = new DecisionLedger(saved?.decisions ?? []);
 const experiments = new ExperimentManager(saved?.experiments ?? []);
 const hypothesisEngine = new HypothesisEngine();
+const adaptationEngine = new AdaptationEngine();
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -48,10 +50,12 @@ const agent = new NeveraAgent(
   survival
 );
 
+let explorationInterval = saved?.explorationInterval ?? 3;
 const startCycle = (saved?.cycle ?? 0) + 1;
 
 for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
   const cycle = startCycle + offset;
+  portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
   const experiment = experiments.start({
     cycle,
@@ -86,6 +90,13 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     strategies: portfolio.stats()
   });
 
+  const adaptation = adaptationEngine.adapt({
+    strategyStats: portfolio.stats(),
+    experimentStats: experiments.stats(),
+    currentExplorationInterval: explorationInterval
+  });
+  explorationInterval = adaptation.explorationInterval;
+
   await persistence.save({
     initialBalance,
     balance: nevera.snapshot().economy.balance,
@@ -94,6 +105,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     strategies: portfolio.export(),
     decisions: ledger.export(),
     experiments: experiments.export(),
+    explorationInterval,
     metrics,
     lastResult: result
   });
@@ -104,6 +116,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     metrics,
     decisionStats: ledger.stats(),
     experimentStats: experiments.stats(),
+    adaptation,
     result
   }, null, 2));
 }
@@ -122,5 +135,6 @@ console.log(JSON.stringify({
   experimentStats: experiments.stats(),
   recentDecisions: ledger.recent(5),
   recentExperiments: experiments.recent(5),
+  explorationInterval,
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
