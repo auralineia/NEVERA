@@ -20,7 +20,7 @@ jobs:
         timeout-minutes: 3
         env:
           NEVERA_BACKTEST_RUNS: 4
-          NEVERA_BACKTEST_CYCLES: 100
+          NEVERA_BACKTEST_CYCLES: 500
           NEVERA_BACKTEST_BALANCE: 10
           NEVERA_BACKTEST_SEED: 20260928
         run: node scripts/backtest.js > backtest-result.json
