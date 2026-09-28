@@ -31,13 +31,22 @@ export function calculateProductionPriority(item, learning = null, weights = DEF
   const demand = opportunity.demand ?? opportunity.marketContext?.demand ?? 1;
   const demandSignal = clamp(demand - 1, -1, 1);
   const historySignal = normalizedCategoryHistory(learning, opportunity.category);
+  const pattern = learning?.patternStats?.({
+    category: opportunity.category,
+    demand,
+    competition: opportunity.competition ?? opportunity.marketContext?.competition ?? 1
+  });
+  const patternSignal = pattern?.attempts >= 3
+    ? clamp((pattern.successRate - 0.5) + pattern.averageNet / 10, -1, 1)
+    : 0;
 
   return Number((
     baseScore * weights.base +
     margin * weights.margin +
     successProbability * weights.successProbability +
     demandSignal * weights.demand +
-    historySignal * weights.history
+    historySignal * weights.history +
+    patternSignal * weights.history
   ).toFixed(4));
 }
 
