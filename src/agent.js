@@ -82,7 +82,7 @@ export class NeveraAgent {
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
         survival: this.survival.assess(state.economy.balance, opportunity)
-      })
+      }))
       .filter((item) => item.evaluation.viable && item.survival.allowed);
 
     const choice = this.strategy(
