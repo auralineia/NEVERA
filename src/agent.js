@@ -218,6 +218,7 @@ export class NeveraAgent {
         continue;
       }
 
+      const balanceBefore = this.nevera.snapshot().economy.balance;
       const outcome = await this.simulator(opportunity);
       const quality = validateExecution({ opportunity, execution, outcome });
 
@@ -248,7 +249,7 @@ export class NeveraAgent {
         opportunity: item.choice.opportunity,
         score: item.choice.score,
         result: { status: "EXECUTED" },
-        action: { execution, outcome }
+        action: { execution, outcome, balanceBefore, balanceAfter: this.nevera.snapshot().economy.balance }
       };
     }
 
@@ -276,6 +277,7 @@ export class NeveraAgent {
       return { result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } };
     }
 
+    const balanceBefore = this.nevera.snapshot().economy.balance;
     const outcome = await this.simulator(executionOpportunity);
     const quality = validateExecution({ opportunity: executionOpportunity, execution, outcome });
     if (!quality.passed) {
@@ -294,7 +296,7 @@ export class NeveraAgent {
       opportunity,
       score: item.choice.score,
       result: { status: "EXECUTED" },
-      action: { execution, outcome }
+      action: { execution, outcome, balanceBefore, balanceAfter: this.nevera.snapshot().economy.balance }
     };
   }
 
