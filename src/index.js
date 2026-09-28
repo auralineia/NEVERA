@@ -314,19 +314,16 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     runtime: runtime.snapshot(),
     publicOpportunities,
     publicTasks,
-    portfolio,
     opportunityStats,
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
-  failureMemory: failureMemory.export(),
-  survival: survivalMetrics({
-    initialBalance,
-    currentBalance: nevera.snapshot().economy.balance,
-    failures: learning.stats().failures ?? 0,
-    cycles: cycleLimit === Infinity ? 0 : cycleLimit
-  }),
-    economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
+    survival: survivalMetrics({
+      initialBalance,
+      currentBalance: nevera.snapshot().economy.balance,
+      failures: learning.stats().failures ?? 0,
+      cycles: cycleLimit === Infinity ? 0 : cycleLimit
+    }),
     decisionMemory: decisionMemory.export(),
     riskMemory: riskMemory.export(),
     economicSandbox: { mode: "MULTI_REGIME_SIMULATION" },
@@ -337,7 +334,6 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     strategyLab: strategyLab.list(),
     objective: objectiveManager.snapshot(),
     recovery: recovery.snapshot(),
-  opportunityQueue: opportunityEngine.snapshot(),
     lastResult: result
   });
 
