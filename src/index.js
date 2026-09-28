@@ -228,6 +228,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     .map((item) => item.action?.outcome)
     .filter(Boolean);
 
+  const balanceAfterAction = nevera.snapshot().economy.balance;
   for (const item of result.actions ?? []) {
     const outcome = item.action?.outcome;
     const opportunity = item.opportunity ?? null;
