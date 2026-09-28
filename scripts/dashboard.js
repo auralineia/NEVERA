@@ -58,6 +58,16 @@ function publicState(state) {
       killSwitch: guardrails.killSwitch ?? false,
       peakBalance: guardrails.peakBalance ?? null
     },
+    revenue: {
+      mode: state.revenueEngine?.mode ?? "SIMULATION",
+      provider: state.revenueEngine?.paymentAdapter?.provider ?? "HTTP",
+      liveAuthorized: state.revenueEngine?.paymentAdapter?.liveAuthorized ?? false,
+      offersCreated: state.revenueEngine?.stats?.offersCreated ?? 0,
+      paymentsPending: state.revenueEngine?.stats?.paymentsPending ?? 0,
+      paymentsConfirmed: state.revenueEngine?.stats?.paymentsConfirmed ?? 0,
+      grossRevenue: state.revenueEngine?.stats?.grossRevenue ?? 0,
+      netRevenue: state.revenueEngine?.stats?.netRevenue ?? 0
+    },
     strategyLab: Array.isArray(state.strategyLab)
       ? state.strategyLab.slice(-5).map((s) => ({
           name: s.name,
@@ -93,10 +103,13 @@ async function refresh(){
    card("Status",status,status==="ALIVE"?"ok":"warn"),card("Receita líquida",e.net),
    card("Drawdown",e.maxDrawdown),card("Perdas",g.losses),
    card("Cooldown",g.cooldownRemaining,g.cooldownRemaining>0?"warn":"ok"),
+   card("Receita confirmada",s.revenue?.netRevenue??0),
+   card("Pagamentos",s.revenue?.paymentsConfirmed??0),
+   card("Live",s.revenue?.liveAuthorized?"ATIVO":"BLOQUEADO",s.revenue?.liveAuthorized?"ok":"warn"),
    card("Restarts",rc.restarts??0,rc.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok")
   ].join('');
   document.getElementById('details').textContent=JSON.stringify({
-   objective:s.objective,runtime:rt,recovery:rc,guardrails:g,marketState:s.marketState,
+   objective:s.objective,runtime:rt,recovery:rc,guardrails:g,revenue:s.revenue,marketState:s.marketState,
    strategyLab:s.strategyLab,telemetry:s.telemetry
   },null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
