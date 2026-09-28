@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 
 const port = Number(process.env.NEVERA_DASHBOARD_PORT ?? 8787);
-const statePath = process.env.NEVERA_STATE_FILE ?? "./nevera-state.json";
+const statePath = (process.env.NEVERA_STATE_FILE ?? "./nevera-state.json").trim();
 const publicMode = process.env.NEVERA_DASHBOARD_PUBLIC === "true";
 const token = process.env.NEVERA_DASHBOARD_TOKEN ?? "";
 const host = publicMode ? "0.0.0.0" : "127.0.0.1";
