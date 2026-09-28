@@ -73,7 +73,7 @@ export async function runBacktest({
     attempts: stats.attempts,
     successRate: stats.successRate,
     net: stats.net,
-    alive: !nevera.isDead(),
+    alive: nevera.snapshot().status !== "DEAD",
     status: nevera.snapshot().status,
     explorationInterval,
     categories: learning.categories()
