@@ -45,7 +45,7 @@ const SERVICE_PROFILES = {
 
 export class RevenueEngine {
   constructor(saved = {}) {
-    this.mode = String(process.env.NEVERA_PAYMENT_MODE ?? saved.mode ?? "SIMULATION").toUpperCase();
+    this.mode = String(process.env.NEVERA_PAYMENT_MODE ?? saved.mode ?? "LIVE").toUpperCase();
     this.currency = String(process.env.NEVERA_BASE_CURRENCY ?? saved.currency ?? "USD").toUpperCase();
     this.sequence = Number(saved.sequence ?? 0);
     this.offers = Array.isArray(saved.offers) ? saved.offers : [];
@@ -111,7 +111,7 @@ export class RevenueEngine {
       offerId: offer.id,
       amount: offer.amount,
       currency: offer.currency,
-      status: this.mode === "SIMULATION" ? "SIMULATED_PENDING" : "PENDING",
+      status: "PENDING",
       provider: "PROVIDER_ADAPTER_REQUIRED",
       createdAt: new Date().toISOString()
     };
