@@ -1,11 +1,12 @@
 import { assessRisk } from "./risk-engine.js";
 
 export class OpportunityEngine {
-  constructor({ evaluator, maxQueue = 10, economicMemory = null, failureMemory = null } = {}) {
+  constructor({ evaluator, maxQueue = 10, economicMemory = null, failureMemory = null, riskMemory = null } = {}) {
     this.evaluator = evaluator;
     this.maxQueue = maxQueue;
     this.economicMemory = economicMemory;
     this.failureMemory = failureMemory;
+    this.riskMemory = riskMemory;
     this.queue = [];
   }
 
@@ -32,7 +33,9 @@ export class OpportunityEngine {
     const stats = this.economicMemory?.stats(item.opportunity.category);
     if (!stats?.attempts) return base;
     const failurePenalty = this.failureMemory?.penalty(item.opportunity.category) ?? 0;
-    return base + Math.max(-0.25, Math.min(0.25, stats.averageNet / 20)) - failurePenalty;
+    const riskStats = this.riskMemory?.stats(item.opportunity.category);
+    const riskPenalty = riskStats?.attempts ? Math.min(0.25, riskStats.averageRisk / 4) : 0;
+    return base + Math.max(-0.25, Math.min(0.25, stats.averageNet / 20)) - failurePenalty - riskPenalty;
   }
 
   next() {
