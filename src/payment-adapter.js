@@ -54,13 +54,7 @@ export class PaymentAdapter {
     if (!paymentId || !offerId) throw new Error("PAYMENT_DATA_REQUIRED");
 
     if (!this.liveAuthorized) {
-      return {
-        mode: "SIMULATION",
-        provider: this.provider,
-        paymentId,
-        checkoutUrl: `/pay/${encodeURIComponent(paymentId)}`,
-        status: "SIMULATED_CHECKOUT"
-      };
+      throw new Error("LIVE_PAYMENT_NOT_AUTHORIZED");
     }
 
     if (this.provider !== "STRIPE") throw new Error("UNSUPPORTED_PAYMENT_PROVIDER");
