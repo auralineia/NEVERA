@@ -515,7 +515,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     }),
     decisionMemory: decisionMemory.export(),
     riskMemory: riskMemory.export(),
-    economicSandbox: { mode: "MULTI_REGIME_SIMULATION" },
+    economicSandbox: { mode: "ANALYTICS_ONLY" },
     longTermMemory: longTermMemory.export(),
     cycleController: cycleController.snapshot(),
     decisionFilter: decisionFilter.recent(),
@@ -579,5 +579,5 @@ console.log(JSON.stringify({
   runtime: runtime.snapshot(),
   recovery: recovery.snapshot(),
   revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
-  persistence: "LOCAL_SIMULATION"
+  persistence: "LIVE_PERSISTENCE"
 }, null, 2));
