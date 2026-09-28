@@ -1,6 +1,6 @@
 export class Learning {
-  constructor() {
-    this.results = [];
+  constructor(initialResults = []) {
+    this.results = initialResults;
   }
 
   record(opportunity, outcome) {
@@ -27,5 +27,9 @@ export class Learning {
       successRate: total ? Number((successes / total).toFixed(4)) : 0,
       net
     };
+  }
+
+  export() {
+    return [...this.results];
   }
 }
