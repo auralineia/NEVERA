@@ -32,7 +32,6 @@ import { OpportunityEngine } from "./opportunity-engine.js";
 import { defaultOpportunitySources, normalizeSources } from "./opportunity-sources.js";
 import { opportunityMetrics } from "./opportunity-metrics.js";
 import { EconomicMemory } from "./economic-memory.js";
-import { simulateEconomicOutcome } from "./economic-simulator.js";
 import { FailureMemory } from "./failure-memory.js";
 import { survivalMetrics } from "./survival-metrics.js";
 import { buildPortfolio } from "./portfolio.js";
@@ -47,6 +46,9 @@ import { DecisionFilter } from "./decision-filter.js";
 import { StrategyLab } from "./strategy-lab.js";
 import { evaluateStrategy } from "./strategy-evaluator.js";
 import { StrategyMemory } from "./strategy-memory.js";
+import { RiskMemory } from "./risk-memory.js";
+import { evaluateAction } from "./post-action.js";
+import { testStrategy } from "./strategy-evolution.js";
 
 
 const persistence = new Persistence();
@@ -96,6 +98,7 @@ const longTermMemory = new LongTermMemory(saved?.longTermMemory ?? []);
 const decisionFilter = new DecisionFilter();
 const strategyLab = new StrategyLab();
 const strategyMemory = new StrategyMemory(saved?.strategyMemory ?? []);
+const riskMemory = new RiskMemory(saved?.riskMemory ?? []);
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
@@ -166,6 +169,16 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const experimentalStrategy = strategyLab.generate({ riskTolerance: guardrails.maxOperationCost / 2, costLimit: guardrails.maxOperationCost });
   longTermMemory.remember("STRATEGY_GENERATED", experimentalStrategy);
   const strategy = portfolio.choose(cycle);
+  const mutation = strategyLab.mutate(strategy, portfolio.stats().find((item) => item.strategy === strategy.name));
+  const mutationTest = testStrategy(mutation, market.available(), { cycles: 8, seed: cycle * 101, regime: cycle % 4 === 0 ? "SHOCK" : cycle % 3 === 0 ? "RECESSION" : "STABLE" });
+  strategyMemory.record(mutation, mutationTest);
+  if (mutationTest.verdict === "PROMOTE") {
+    strategyLab.promote(mutation.name);
+    portfolio.addStrategy(mutation);
+  } else if (mutationTest.verdict === "REJECT") {
+    strategyLab.demote(mutation.name);
+  }
+  longTermMemory.remember("STRATEGY_TEST", mutationTest);
   longTermMemory.remember("META_LEARNING", meta);
   const cycleDecision = cycleController.decide({
     balance: nevera.snapshot().economy.balance,
@@ -192,6 +205,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     }),
     strategy: strategy.name
   });
+  const balanceBeforeAction = nevera.snapshot().economy.balance;
   let result;
   try {
     result = await agent.cycle(strategy, { maxActions: Math.min(throughput.current, cycleDecision.actions) });
@@ -214,16 +228,20 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     .map((item) => item.action?.outcome)
     .filter(Boolean);
 
-  for (const item of opportunityBatch) {
-    const economicOutcome = simulateEconomicOutcome(item.opportunity);
-    economicMemory.record(item.opportunity, economicOutcome);
-    failureMemory.record(item.opportunity, economicOutcome);
-  }
-
-  for (const outcome of outcomes) {
+  const balanceAfterAction = nevera.snapshot().economy.balance;
+  for (const item of result.actions ?? []) {
+    const outcome = item.action?.outcome;
+    const opportunity = item.opportunity ?? null;
+    if (!outcome || !opportunity) continue;
+    const actionEvaluation = evaluateAction({ opportunity, outcome, balanceBefore: balanceBeforeAction, balanceAfter: balanceAfterAction });
+    const risk = opportunity.risk ?? 0;
+    economicMemory.record(opportunity, outcome);
+    failureMemory.record(opportunity, outcome);
+    riskMemory.record(opportunity, { score: risk, exposure: balanceBeforeAction > 0 ? opportunity.estimatedCost / balanceBeforeAction : 1 }, outcome);
+    guardrails.record(outcome.net);
     portfolio.record(strategy, outcome);
-    const learningItem = learning.results.at(-1);
-    if (learningItem) learningItem.strategy = strategy.name;
+    strategyMemory.record(strategy, { ...actionEvaluation, score: result.score ?? 0, verdict: outcome.status === "SUCCESS" ? "SUCCESS" : "FAILURE" });
+    longTermMemory.remember("ACTUAL_OUTCOME", { cycle, opportunity: opportunity.name, outcome, actionEvaluation });
   }
 
   if (outcomes.length) {
@@ -311,6 +329,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
     decisionMemory: decisionMemory.export(),
+    riskMemory: riskMemory.export(),
     longTermMemory: longTermMemory.export(),
     cycleController: cycleController.snapshot(),
     decisionFilter: decisionFilter.recent(),
