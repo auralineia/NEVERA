@@ -7,15 +7,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm test
+
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Run backtest smoke test
         timeout-minutes: 15
         env:
@@ -46,6 +55,15 @@ jobs:
         with:
           name: nevera-backtest-smoke
           path: backtest-result.json
+
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Run adversarial stress test
         timeout-minutes: 5
         run: node scripts/stress-test.js > stress-test-result.json
