@@ -70,6 +70,7 @@ const guardrails = new Guardrails({
   maxOperationCost: Number(process.env.NEVERA_MAX_OPERATION_COST ?? 1),
   dailyLossLimit: Number(process.env.NEVERA_DAILY_LOSS_LIMIT ?? 2),
   maxDrawdown: Number(process.env.NEVERA_MAX_DRAWDOWN ?? 0.5),
+  cooldownCycles: Number(process.env.NEVERA_COOLDOWN_CYCLES ?? 2),
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
 const realSandbox = new RealSandbox({
@@ -88,6 +89,7 @@ const discovery = new OpportunityDiscovery({
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
+guardrails.cooldownRemaining = Number(saved?.guardrails?.cooldownRemaining ?? 0);
 guardrails.peakBalance = Number(saved?.guardrails?.peakBalance ?? saved?.balance ?? initialBalance);
 const telemetry = new Telemetry();
 const objectiveManager = new ObjectiveManager();
@@ -131,7 +133,8 @@ const agent = new NeveraAgent(
     priorityWeights: saved?.priorityWeights ?? null,
     queueState: saved?.productionQueue ?? null,
     experimentEvidence: saved?.experimentEvidence ?? [],
-    guardrails
+    guardrails,
+    maxCycleCost: Number(process.env.NEVERA_MAX_CYCLE_COST ?? 1)
   }
 );
 
@@ -146,6 +149,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const cycle = startCycle + offset;
   runtime.cycleStarted(cycle);
   guardrails.observe(nevera.snapshot().economy.balance);
+  guardrails.tick();
   telemetry.record("CYCLE_START", { cycle });
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
