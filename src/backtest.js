@@ -123,7 +123,7 @@ export async function runBacktestBatch({
 } = {}) {
   const results = [];
   const width = Math.max(1, Math.min(runs, Math.floor(Number(concurrency) || 1)));
-  const canUseWorkers = !simulatorFactory && !dynamicMarketFactory && !executionEngineFactory && !marketFactory;
+  const canUseWorkers = marketFactory === defaultMarket && !simulatorFactory && !dynamicMarketFactory && !executionEngineFactory;
 
   if (canUseWorkers) {
     const { Worker } = await import("node:worker_threads");
