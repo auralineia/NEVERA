@@ -2,6 +2,7 @@ import { ExecutionEngine } from "./execution-engine.js";
 import { validateExecution } from "./quality.js";
 import { CapitalPolicy } from "./capital-policy.js";
 import { chooseOpportunities } from "./strategy.js";
+import { chooseDecisions } from "./decision-engine.js";
 import { ProductionQueue } from "./production-queue.js";
 import { calculateProductionPriority, defaultPriorityWeights, learnPriorityWeights } from "./priority.js";
 
@@ -29,7 +30,8 @@ function isRetryable(result) {
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null, {
     priorityWeights = null,
-    queueState = null
+    queueState = null,
+    experimentEvidence = []
   } = {}) {
     this.nevera = nevera;
     this.brain = brain;
@@ -45,6 +47,7 @@ export class NeveraAgent {
     this.executionEngine = executionEngine ?? new ExecutionEngine();
     this.capitalPolicy = new CapitalPolicy();
     this.priorityWeights = priorityWeights ?? defaultPriorityWeights();
+    this.experimentEvidence = Array.isArray(experimentEvidence) ? experimentEvidence : [];
     this.productionQueue = new ProductionQueue(
       (item) => calculateProductionPriority(item, this.learning, this.priorityWeights),
       queueState ?? {}
@@ -115,10 +118,19 @@ export class NeveraAgent {
       }))
       .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable);
 
-    return chooseOpportunities(
+    const regime = candidates.length
+      ? this.learning?.regime?.(candidates[0].opportunity.category)
+      : null;
+
+    return chooseDecisions(
       candidates.map((item) => item.opportunity),
-      state.economy.balance,
-      this.learning,
+      {
+        balance: state.economy.balance,
+        learning: this.learning,
+        strategyProfile,
+        experimentEvidence: this.experimentEvidence,
+        regime
+      },
       maxActions
     ).map((choice) => {
       const candidate = candidates.find(
@@ -130,7 +142,8 @@ export class NeveraAgent {
         choice,
         candidate,
         executionOpportunity,
-        priorityScore: calculateProductionPriority(
+        priorityScore: choice.decisionScore,
+        legacyPriorityScore: calculateProductionPriority(
           { choice, opportunity: executionOpportunity },
           this.learning,
           this.priorityWeights
