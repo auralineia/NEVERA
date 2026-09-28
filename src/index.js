@@ -25,6 +25,8 @@ import { TaskExecutor } from "./task-executor.js";
 import { Telemetry } from "./telemetry.js";
 import { Runtime } from "./runtime.js";
 import { translatePublicSignals } from "./public-opportunities.js";
+import { planPublicTasks } from "./task-planner.js";
+import { RecoveryManager } from "./recovery.js";
 
 
 const persistence = new Persistence();
@@ -61,6 +63,7 @@ const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
 const runtime = new Runtime();
+const recovery = new RecoveryManager();
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
@@ -104,6 +107,10 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("CYCLE_START", { cycle });
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
+  const publicTasks = planPublicTasks(publicOpportunities);
+  for (const task of publicTasks) {
+    telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
+  }
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
@@ -119,7 +126,17 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     }),
     strategy: strategy.name
   });
-  const result = await agent.cycle(strategy, { maxActions: throughput.current });
+  let result;
+  try {
+    result = await agent.cycle(strategy, { maxActions: throughput.current });
+    recovery.success();
+  } catch (error) {
+    recovery.failure();
+    runtime.error(error);
+    telemetry.record("CYCLE_ERROR", { cycle, message: error.message });
+    if (recovery.snapshot().consecutiveErrors >= recovery.maxConsecutiveErrors) recovery.restart();
+    throw error;
+  }
   telemetry.record("AGENT_CYCLE", { cycle, executed: result.production?.executed ?? 0 });
   const throughputDecision = throughput.decide({
     outcomes: result.production?.outcomes ?? [],
@@ -198,6 +215,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     telemetry: telemetry.snapshot(),
     runtime: runtime.snapshot(),
     publicOpportunities,
+    publicTasks,
+    recovery: recovery.snapshot(),
     lastResult: result
   });
 
@@ -235,5 +254,6 @@ console.log(JSON.stringify({
   sandbox: realSandbox.snapshot(),
   telemetry: telemetry.snapshot(),
   runtime: runtime.snapshot(),
+  recovery: recovery.snapshot(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
