@@ -19,9 +19,33 @@ export class NeveraAgent {
     this.capitalPolicy = new CapitalPolicy();
   }
 
-  async cycle(strategyProfile = null) {
-    const resources = this.executionEngine.beginCycle();
-    this.nevera.log("RESOURCE_CYCLE", { resources });
+  async cycle(strategyProfile = null, { maxActions = 3 } = {}) {
+    const actions = [];
+    let resources = this.executionEngine.beginCycle();
+    this.nevera.log("RESOURCE_CYCLE", { resources, maxActions });
+
+    for (let index = 0; index < maxActions; index += 1) {
+      const result = await this.cycleOnce(strategyProfile, { resetResources: index > 0 ? false : false });
+      actions.push(result);
+      if (!result.action?.outcome) break;
+    }
+
+    return {
+      ...actions.at(-1),
+      actions,
+      production: {
+        requested: maxActions,
+        executed: actions.filter((item) => item.action?.outcome).length,
+        outcomes: actions.map((item) => item.action?.outcome ?? null)
+      }
+    };
+  }
+
+  async cycleOnce(strategyProfile = null, { resetResources = false } = {}) {
+    if (resetResources) {
+      const resources = this.executionEngine.beginCycle();
+      this.nevera.log("RESOURCE_CYCLE", { resources });
+    }
 
     const state = this.nevera.snapshot();
     const decision = this.brain.think(state);
@@ -122,8 +146,7 @@ export class NeveraAgent {
       score: choice.score,
       strategy: strategyProfile?.name ?? "UNSPECIFIED",
       evaluation: selected.evaluation,
-      survival: selected.survival,
-      capitalPolicy: capitalDecision
+      survival: selected.survival
     });
 
     const research = await this.tools.execute("research_opportunity", {
