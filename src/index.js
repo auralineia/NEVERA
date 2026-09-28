@@ -78,7 +78,7 @@ const guardrails = new Guardrails({
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
 const realSandbox = new RealSandbox({
-  allowDomains: (process.env.NEVERA_ALLOWED_DOMAINS ?? "example.com").split(",").map((v) => v.trim()).filter(Boolean),
+  allowDomains: (process.env.NEVERA_ALLOWED_DOMAINS ?? "example.com,jobicy.com,himalayas.app").split(",").map((v) => v.trim()).filter(Boolean),
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
 const opportunitySources = normalizeSources([...defaultOpportunitySources(), ...configuredGlobalSources()]);
