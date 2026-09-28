@@ -1,7 +1,7 @@
 import { ResourceManager } from "./resource-manager.js";
 
 export class ExecutionEngine {
-  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "EMERGING"], maxSteps = 8, resources = null } = {}) {
+  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "ARBITRAGE", "EMERGING"], maxSteps = 8, resources = null } = {}) {
     this.capabilities = new Set(capabilities);
     this.maxSteps = maxSteps;
     this.resourceManager = resources instanceof ResourceManager ? resources : new ResourceManager(resources ?? undefined);
@@ -144,6 +144,7 @@ export class ExecutionEngine {
       RESEARCH: ["interpret_request", "collect_simulated_evidence", "synthesize_findings", "prepare_report"],
       SERVICE: ["interpret_request", "prepare_execution_plan", "perform_simulated_service", "validate_result", "prepare_delivery"],
       PRODUCT: ["define_scope", "build_simulated_product", "validate_product", "prepare_delivery"],
+      ARBITRAGE: ["scan_price_discrepancy", "simulate_route", "validate_spread", "prepare_delivery"],
       EMERGING: ["interpret_request", "explore_new_demand", "build_simulated_solution", "validate_result", "prepare_delivery"]
     };
 
@@ -155,6 +156,7 @@ export class ExecutionEngine {
       RESEARCH: ["simulated_research_engine"],
       SERVICE: ["simulated_automation_engine"],
       PRODUCT: ["simulated_product_builder"],
+      ARBITRAGE: ["simulated_arbitrage_engine"],
       EMERGING: ["simulated_general_executor"]
     };
 
@@ -166,6 +168,7 @@ export class ExecutionEngine {
       RESEARCH: "REPORT",
       SERVICE: "SERVICE_RESULT",
       PRODUCT: "DIGITAL_PRODUCT",
+      ARBITRAGE: "ARBITRAGE_RESULT",
       EMERGING: "EXPERIMENTAL_DELIVERABLE"
     }[category] ?? "UNKNOWN";
   }
