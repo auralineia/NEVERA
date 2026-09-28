@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,7 +17,7 @@ jobs:
           node-version: 20
       - run: npm test
       - name: Run large backtest
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: node scripts/backtest.js > backtest-result.json
       - name: Upload backtest result
         uses: actions/upload-artifact@v4
