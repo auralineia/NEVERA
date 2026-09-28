@@ -56,8 +56,8 @@ test("engine respeita limite de etapas", () => {
 test("engine rejeita execução quando o recurso acabou", async () => {
   const engine = new ExecutionEngine({
     resources: {
-      simulated_automation_engine: 1,
       simulated_research_engine: 0,
+      simulated_automation_engine: 1,
       simulated_product_builder: 0,
       simulated_general_executor: 0
     }
