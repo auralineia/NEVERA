@@ -32,11 +32,11 @@ export async function runStressTest({
   initialBalance = 10,
   seed = 20260928
 } = {}) {
-  const forcedFailure = () => () => ({
+  const forcedFailure = () => (opportunity) => ({
     status: "FAILURE",
     revenue: 0,
-    cost: 1.5,
-    net: -1.5
+    cost: opportunity.estimatedCost,
+    net: Number((-opportunity.estimatedCost).toFixed(2))
   });
 
   const scenarios = [
