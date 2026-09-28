@@ -14,3 +14,10 @@ jobs:
         with:
           node-version: 20
       - run: npm test
+      - name: Run large backtest
+        run: node scripts/backtest.js > backtest-result.json
+      - name: Upload backtest result
+        uses: actions/upload-artifact@v4
+        with:
+          name: nevera-backtest
+          path: backtest-result.json
