@@ -1,0 +1,29 @@
+name: NEVERA Paper Economy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run paper economy
+        env:
+          NEVERA_PAPER_RUNS: 10
+          NEVERA_PAPER_CYCLES: 5000
+          NEVERA_PAPER_BALANCE: 1000
+        run: node scripts/paper-economy.js > paper-result.json
+      - name: Print paper summary
+        run: cat paper-result.json
+      - name: Upload paper result
+        uses: actions/upload-artifact@v4
+        with:
+          name: nevera-paper-economy
+          path: paper-result.json
