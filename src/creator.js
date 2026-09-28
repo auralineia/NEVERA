@@ -44,6 +44,12 @@ export class OpportunityCreator {
     };
   }
 
+  scan(learning, marketContexts = []) {
+    return marketContexts.map((context) =>
+      this.discover(learning, context)
+    );
+  }
+
   discover(learning, marketContext = {}) {
     this.counter += 1;
 
