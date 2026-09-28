@@ -12,10 +12,11 @@ export class PaymentAdapter {
     this.mode = String(mode).toUpperCase();
     this.provider = process.env.NEVERA_PAYMENT_PROVIDER ?? "HTTP";
     this.checkoutUrl = String(process.env.NEVERA_PAYMENT_CHECKOUT_URL ?? "").trim();
+    this.apiSecret = String(process.env.NEVERA_PAYMENT_API_SECRET ?? "").trim();
     this.webhookSecret = String(process.env.NEVERA_PAYMENT_WEBHOOK_SECRET ?? "").trim();
     this.returnUrl = String(process.env.NEVERA_PAYMENT_RETURN_URL ?? "").trim();
     this.realMoney = String(process.env.NEVERA_REAL_MONEY ?? "false").toLowerCase() === "true";
-    this.liveAuthorized = this.mode === "LIVE" && this.realMoney && Boolean(this.checkoutUrl) && Boolean(this.webhookSecret);
+    this.liveAuthorized = this.mode === "LIVE" && this.realMoney && Boolean(this.checkoutUrl) && Boolean(this.apiSecret) && Boolean(this.webhookSecret);
   }
 
   status() {
@@ -44,7 +45,7 @@ export class PaymentAdapter {
 
     const response = await fetch(this.checkoutUrl, {
       method: "POST",
-      headers: jsonHeaders(this.webhookSecret),
+      headers: jsonHeaders(this.apiSecret),
       body: JSON.stringify({
         paymentId,
         offerId,
