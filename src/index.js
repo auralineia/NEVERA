@@ -140,6 +140,28 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url === "/latest-checkout") {
+    const livePayments = revenueEngine.paymentIntents
+      .filter((item) => item?.checkout?.checkoutUrl && item?.checkout?.status === "CHECKOUT_CREATED")
+      .slice(-1);
+    const payment = livePayments[0];
+    if (!payment) {
+      res.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "CHECKOUT_NOT_FOUND", liveCheckoutEnabled }));
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({
+      paymentId: payment.id,
+      offerId: payment.offerId,
+      amount: payment.amount,
+      currency: payment.currency,
+      checkoutUrl: payment.checkout.checkoutUrl,
+      status: payment.checkout.status
+    }));
+    return;
+  }
+
   if (req.method === "GET" && req.url.startsWith("/pay/")) {
     const paymentId = decodeURIComponent(req.url.slice("/pay/".length).split("?")[0]);
     const payment = revenueEngine.paymentIntents.find((item) => item.id === paymentId);
