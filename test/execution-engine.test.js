@@ -52,3 +52,29 @@ test("engine respeita limite de etapas", () => {
 
   assert.equal(plan.steps.length, 2);
 });
+
+test("engine rejeita execução quando o recurso acabou", async () => {
+  const engine = new ExecutionEngine({
+    resources: {
+      simulated_automation_engine: 1,
+      simulated_research_engine: 0,
+      simulated_product_builder: 0,
+      simulated_general_executor: 0
+    }
+  });
+
+  const first = await engine.execute({
+    name: "Automação 1",
+    category: "SERVICE",
+    estimatedCost: 1
+  });
+  const second = await engine.execute({
+    name: "Automação 2",
+    category: "SERVICE",
+    estimatedCost: 1
+  });
+
+  assert.equal(first.status, "SUCCESS");
+  assert.equal(second.status, "REJECTED");
+  assert.equal(second.reason, "RESOURCE_UNAVAILABLE");
+});
