@@ -11,6 +11,7 @@ export function translatePublicSignals(scanResults = []) {
       demand: 1,
       competition: 1,
       source: "PUBLIC_SIGNAL",
-      signal: item.signal
+      signal: item.signal,
+      url: item.url
     }));
 }
