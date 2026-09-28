@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { readFile } from "node:fs/promises";
 
 const port = Number(process.env.NEVERA_DASHBOARD_PORT ?? 8787);
@@ -117,12 +117,10 @@ async function refresh(){
 refresh();setInterval(refresh,2000);
 </script></body></html>`;
 
-const createServerRequest = (options, callback) => import("node:http").then(({request}) => request(options, callback));
-
 function proxyPaymentRequest(req,res){
  const targetPort=Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
  const options={hostname:"127.0.0.1",port:targetPort,path:req.url,method:req.method,headers:{...req.headers,host:`127.0.0.1:${targetPort}`}};
- const upstream=createServerRequest(options,upstreamRes=>{
+ const upstream=httpRequest(options,upstreamRes=>{
   res.writeHead(upstreamRes.statusCode ?? 502,upstreamRes.headers);
   upstreamRes.pipe(res);
  });
