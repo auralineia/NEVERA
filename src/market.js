@@ -36,6 +36,15 @@ export function defaultMarket() {
       status: "OPEN"
     },
     {
+      name: "Arbitragem digital simulada",
+      category: "ARBITRAGE",
+      estimatedRevenue: 6,
+      estimatedCost: 1.2,
+      risk: 0.25,
+      effort: 2,
+      status: "OPEN"
+    },
+    {
       name: "Produto digital experimental",
       category: "PRODUCT",
       estimatedRevenue: 15,
