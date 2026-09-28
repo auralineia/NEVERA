@@ -98,7 +98,15 @@ export async function runStressTest({
       (batch.results.reduce((sum, item) => sum + item.attempts, 0) / runs).toFixed(2)
     );
 
-    scenarioResults.push({
+    const averageSuccessRate = Number(
+      (batch.results.reduce((sum, item) => sum + item.successRate, 0) / runs).toFixed(4)
+    );
+
+    const lossRunRate = Number(
+      (batch.results.filter((item) => item.netWorthChange < 0).length / runs).toFixed(4)
+    );
+
+    const scenarioResults.push({
       name: scenario.name,
       survivalRate: batch.survivalRate,
       averageFinalBalance: batch.averageFinalBalance,
@@ -106,7 +114,9 @@ export async function runStressTest({
       bestFinalBalance: batch.bestFinalBalance,
       averageNetWorthChange: averageChange,
       capitalPreservedRate,
-      averageAttempts
+      averageAttempts,
+      averageSuccessRate,
+      lossRunRate
     });
   }
 
