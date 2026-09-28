@@ -1,10 +1,12 @@
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
     this.strategy = strategy;
     this.market = market;
+    this.simulator = simulator;
+    this.learning = learning;
   }
 
   async cycle() {
@@ -28,18 +30,29 @@ export class NeveraAgent {
       return { decision, action: null, opportunity: null, result };
     }
 
-    const result = await this.tools.execute("research_opportunity", {
+    const research = await this.tools.execute("research_opportunity", {
       idea: choice.opportunity.name
     });
 
-    this.brain.remember(choice.opportunity.name, result);
+    const outcome = this.simulator(choice.opportunity);
 
-    this.nevera.log("MARKET_CHOICE", {
+    if (outcome.cost > 0) {
+      this.nevera.spend(outcome.cost, `simulated: ${choice.opportunity.name}`);
+    }
+
+    if (outcome.revenue > 0) {
+      this.nevera.earn(outcome.revenue, `simulated: ${choice.opportunity.name}`);
+    }
+
+    this.learning.record(choice.opportunity, outcome);
+    this.brain.remember(choice.opportunity.name, outcome);
+
+    this.nevera.log("MARKET_RESULT", {
       opportunity: choice.opportunity,
-      score: choice.score
+      score: choice.score,
+      outcome,
+      learning: this.learning.stats()
     });
-
-    this.nevera.log("TOOL_RESULT", result);
 
     return {
       decision,
@@ -47,8 +60,10 @@ export class NeveraAgent {
       score: choice.score,
       action: {
         tool: "research_opportunity",
-        result
-      }
+        research,
+        outcome
+      },
+      learning: this.learning.stats()
     };
   }
 }
