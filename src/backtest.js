@@ -15,7 +15,7 @@ import { DynamicMarket } from "./dynamic-market.js";
 
 export async function runBacktest({
   initialBalance = 10,
-  cycles = 100,
+  cycles = 1000,
   seed = 42,
   marketFactory = defaultMarket,
   simulatorFactory = null,
@@ -63,9 +63,10 @@ export async function runBacktest({
     const result = await agent.cycle(strategy);
     balanceHistory.push(nevera.snapshot().economy.balance);
 
-    if (result.action?.outcome) {
+    const actualOutcomes = (result.actions ?? []).map((item) => item.action?.outcome).filter(Boolean);
+    if (actualOutcomes.length) {
       cyclesWithOutcome += 1;
-      portfolio.record(strategy, result.action.outcome);
+      for (const outcome of actualOutcomes) portfolio.record(strategy, outcome);
     }
 
     const next = adaptation.adapt({
@@ -98,6 +99,7 @@ export async function runBacktest({
     status: nevera.snapshot().status,
     explorationInterval,
     categories: learning.categories(),
+    strategies: portfolio.stats(),
     failureRate: stats.attempts ? Number((stats.failures / stats.attempts).toFixed(4)) : 0,
     maxDrawdown,
     volatility: Number(Math.sqrt(variance).toFixed(4))
@@ -106,7 +108,7 @@ export async function runBacktest({
 
 export async function runBacktestBatch({
   runs = 20,
-  cycles = 100,
+  cycles = 1000,
   initialBalance = 10,
   seed = 42,
   marketFactory = defaultMarket,
