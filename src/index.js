@@ -16,6 +16,7 @@ import { DecisionLedger } from "./decision-ledger.js";
 import { ExperimentManager } from "./experiments.js";
 import { HypothesisEngine } from "./hypotheses.js";
 import { AdaptationEngine } from "./adaptation.js";
+import { DynamicMarket } from "./dynamic-market.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -33,6 +34,7 @@ const ledger = new DecisionLedger(saved?.decisions ?? []);
 const experiments = new ExperimentManager(saved?.experiments ?? []);
 const hypothesisEngine = new HypothesisEngine();
 const adaptationEngine = new AdaptationEngine();
+const dynamicMarket = new DynamicMarket(saved?.marketSeed ?? 42);
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -47,7 +49,8 @@ const agent = new NeveraAgent(
   learning,
   creator,
   evaluateOpportunity,
-  survival
+  survival,
+  dynamicMarket
 );
 
 let explorationInterval = saved?.explorationInterval ?? 3;
@@ -106,6 +109,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     decisions: ledger.export(),
     experiments: experiments.export(),
     explorationInterval,
+    marketSeed: 42,
     metrics,
     lastResult: result
   });
