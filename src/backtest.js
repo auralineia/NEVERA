@@ -4,7 +4,7 @@ import { createSimulationTools } from "./tools.js";
 import { NeveraAgent } from "./agent.js";
 import { defaultMarket } from "./market.js";
 import { chooseOpportunity } from "./strategy.js";
-import { simulateOutcome } from "./simulator.js";
+import { createSeededRandom, simulateOutcome } from "./simulator.js";
 import { Learning } from "./learning.js";
 import { OpportunityCreator } from "./creator.js";
 import { evaluateOpportunity } from "./evaluator.js";
@@ -28,13 +28,14 @@ export async function runBacktest({
   const portfolio = new StrategyPortfolio();
   const adaptation = new AdaptationEngine();
   const dynamicMarket = new DynamicMarket(seed);
+  const random = createSeededRandom(seed * 7919 + 17);
 
   nevera.boot();
   brain.setObjective("Testar geração sustentável de receita em ambiente simulado");
 
   const agent = new NeveraAgent(
     nevera, brain, tools, chooseOpportunity, market,
-    simulateOutcome, learning, creator, evaluateOpportunity,
+    (opportunity) => simulateOutcome(opportunity, random), learning, creator, evaluateOpportunity,
     survival, dynamicMarket
   );
 
