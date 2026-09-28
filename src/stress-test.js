@@ -68,6 +68,20 @@ export async function runStressTest({
     {
       name: "HIGH_FAILURE",
       marketFactory: hostileMarket(5, 2, 0.7, 1)
+    },
+    {
+      name: "COST_SPIKE",
+      marketFactory: hostileMarket(8, 4.8, 0.2, 2)
+    },
+    {
+      name: "FALSE_OPPORTUNITIES",
+      marketFactory: hostileMarket(1.2, 1, 0.95, 1),
+      simulatorFactory: forcedFailure
+    },
+    {
+      name: "EXECUTION_FAILURE",
+      marketFactory: hostileMarket(8, 1, 0.1, 2),
+      executionEngineFactory: () => new ExecutionEngine({ capabilities: [] })
     }
   ];
 
