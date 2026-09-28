@@ -27,6 +27,7 @@ import { Runtime } from "./runtime.js";
 import { translatePublicSignals } from "./public-opportunities.js";
 import { planPublicTasks } from "./task-planner.js";
 import { RecoveryManager } from "./recovery.js";
+import { taskToExecution } from "./task-planner.js";
 
 
 const persistence = new Persistence();
@@ -110,6 +111,12 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const publicTasks = planPublicTasks(publicOpportunities);
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
+    try {
+      const execution = await taskExecutor.execute(taskToExecution(task), nevera.snapshot().economy.balance);
+      telemetry.record("TASK_EXECUTED", { cycle, task: task.name, status: execution.status });
+    } catch (error) {
+      telemetry.record("TASK_ERROR", { cycle, task: task.name, message: error.message });
+    }
   }
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
