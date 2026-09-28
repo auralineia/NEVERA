@@ -2,6 +2,7 @@ import { ExecutionEngine } from "./execution-engine.js";
 import { validateExecution } from "./quality.js";
 import { CapitalPolicy } from "./capital-policy.js";
 import { chooseOpportunities } from "./strategy.js";
+import { ProductionQueue } from "./production-queue.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -18,6 +19,7 @@ export class NeveraAgent {
     this.dynamicMarket = dynamicMarket;
     this.executionEngine = executionEngine ?? new ExecutionEngine();
     this.capitalPolicy = new CapitalPolicy();
+    this.productionQueue = new ProductionQueue();
   }
 
   async cycle(strategyProfile = null, { maxActions = 3 } = {}) {
@@ -25,7 +27,9 @@ export class NeveraAgent {
     let resources = this.executionEngine.beginCycle();
     this.nevera.log("RESOURCE_CYCLE", { resources, maxActions });
 
-    let batch = await this.prepareBatch(strategyProfile, maxActions);
+    const prepared = await this.prepareBatch(strategyProfile, maxActions * 2);
+    this.productionQueue.enqueue(prepared);
+    let batch = this.productionQueue.next(maxActions);
     if (batch.length > 1) {
       const capitalBatch = this.capitalPolicy.reserveBatch(
         this.nevera.snapshot().economy.balance,
