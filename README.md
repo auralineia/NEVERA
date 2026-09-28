@@ -71,3 +71,26 @@ O fluxo operacional da NEVERA agora inclui:
 9. persistência do estado.
 
 A camada econômica continua simulada. Não há pagamentos, carteiras ou credenciais reais.
+
+
+## Global Revenue Engine
+
+A camada de receita agora foi estruturada para operar globalmente, sem limitar a NEVERA ao Brasil.
+
+- mercados internacionais e múltiplas moedas;
+- seleção de mercado e método de cobrança por oferta;
+- precificação por canal e mercado;
+- propostas/ofertas com identificador próprio;
+- payment intents e ledger de receita;
+- canais de receita múltiplos;
+- arquitetura preparada para adaptadores de provedores de pagamento.
+
+### Canais
+
+A NEVERA pode testar serviços digitais, automação empresarial, conteúdo e mídia, produtos digitais, e-commerce, dados e pesquisa, micro-SaaS, apps e ferramentas, afiliados, contratos B2B, arbitragem legítima e pesquisa de investimentos.
+
+### Pagamentos
+
+O Revenue Engine está conectado ao ciclo operacional, mas **pagamentos reais continuam desativados** até que um provedor seja configurado e a camada de autorização seja revisada. O sistema não armazena dados de cartão, chaves privadas ou credenciais de pagamento no GitHub.
+
+O modo atual é de simulação e serve para validar oferta, preço, mercado, fluxo de cobrança, telemetria e persistência antes de qualquer movimentação financeira real.
