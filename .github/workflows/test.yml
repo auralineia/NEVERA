@@ -25,11 +25,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Run backtest 1,000 cycles
+      - name: Run backtest 10,000 cycles
         timeout-minutes: 15
         env:
-          NEVERA_BACKTEST_RUNS: 4
-          NEVERA_BACKTEST_CYCLES: 1000
+          NEVERA_BACKTEST_RUNS: 10
+          NEVERA_BACKTEST_CYCLES: 10000
           NEVERA_BACKTEST_BALANCE: 10
           NEVERA_BACKTEST_SEED: 20260928
         run: node scripts/backtest.js > backtest-result.json
@@ -38,10 +38,10 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           const r = JSON.parse(fs.readFileSync("backtest-result.json", "utf8"));
-          if (r.runs !== 4 || r.cycles !== 1000 || !Number.isFinite(r.averageFinalBalance)) {
-            throw new Error("BACKTEST_1000_INVALID");
+          if (r.runs !== 10 || r.cycles !== 10000 || !Number.isFinite(r.averageFinalBalance)) {
+            throw new Error("BACKTEST_10000_INVALID");
           }
-          console.log("=== NEVERA BACKTEST 1,000 CYCLES ===");
+          console.log("=== NEVERA BACKTEST 10,000 CYCLES ===");
           console.log(JSON.stringify({
             runs: r.runs,
             cycles: r.cycles,
@@ -54,7 +54,7 @@ jobs:
       - name: Upload backtest result
         uses: actions/upload-artifact@v4
         with:
-          name: nevera-backtest-1000
+          name: nevera-backtest-10000
           path: backtest-result.json
 
   stress:
