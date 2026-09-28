@@ -79,3 +79,37 @@ test("engine rejeita execução quando o recurso acabou", async () => {
   assert.equal(second.status, "REJECTED");
   assert.equal(second.reason, "RESOURCE_UNAVAILABLE");
 });
+
+test("engine restaura recursos no início de um novo ciclo", async () => {
+  const engine = new ExecutionEngine({
+    resources: new ResourceManager({
+      simulated_research_engine: 0,
+      simulated_automation_engine: 1,
+      simulated_product_builder: 0,
+      simulated_general_executor: 0
+    })
+  });
+
+  await engine.execute({
+    name: "Automação 1",
+    category: "SERVICE",
+    estimatedCost: 1
+  });
+
+  const blocked = await engine.execute({
+    name: "Automação 2",
+    category: "SERVICE",
+    estimatedCost: 1
+  });
+  assert.equal(blocked.reason, "RESOURCE_UNAVAILABLE");
+
+  engine.beginCycle();
+
+  const nextCycle = await engine.execute({
+    name: "Automação 3",
+    category: "SERVICE",
+    estimatedCost: 1
+  });
+
+  assert.equal(nextCycle.status, "SUCCESS");
+});
