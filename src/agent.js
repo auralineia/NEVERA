@@ -33,7 +33,8 @@ export class NeveraAgent {
     priorityWeights = null,
     queueState = null,
     experimentEvidence = [],
-    guardrails = null
+    guardrails = null,
+    maxCycleCost = 1
   } = {}) {
     this.nevera = nevera;
     this.brain = brain;
@@ -51,6 +52,7 @@ export class NeveraAgent {
     this.priorityWeights = priorityWeights ?? defaultPriorityWeights();
     this.experimentEvidence = Array.isArray(experimentEvidence) ? experimentEvidence : [];
     this.guardrails = guardrails ?? null;
+    this.maxCycleCost = Math.max(0, Number(maxCycleCost ?? 1));
     this.productionQueue = new ProductionQueue(
       (item) => calculateProductionPriority(item, this.learning, this.priorityWeights),
       queueState ?? {}
@@ -66,6 +68,9 @@ export class NeveraAgent {
     const prepared = await this.prepareBatch(strategyProfile, maxActions * 2);
     this.productionQueue.enqueue(prepared);
     let batch = this.productionQueue.next(maxActions);
+    const budget = this.#fitCycleBudget(batch);
+    batch = budget.batch;
+    this.nevera.log("ACTION_BUDGET", budget);
     if (batch.length > 1) {
       const capitalBatch = this.capitalPolicy.reserveBatch(
         this.nevera.snapshot().economy.balance,
@@ -91,8 +96,12 @@ export class NeveraAgent {
       }
     }
 
+    const last = actions.at(-1) ?? {
+      result: { status: "NO_ACTION", reason: "NO_ACTIONS" },
+      action: { outcome: null }
+    };
     return {
-      ...actions.at(-1),
+      ...last,
       actions,
       production: {
         requested: maxActions,
@@ -100,6 +109,25 @@ export class NeveraAgent {
         executed: actions.filter((item) => item.action?.outcome).length,
         outcomes: actions.map((item) => item.action?.outcome ?? null)
       }
+    };
+  }
+
+  #fitCycleBudget(batch = []) {
+    let remaining = this.maxCycleCost;
+    const selected = [];
+    for (const item of batch) {
+      const opportunity = item.executionOpportunity ?? item.choice?.opportunity;
+      const cost = Number(opportunity?.estimatedCost ?? 0);
+      if (cost <= remaining) {
+        selected.push(item);
+        remaining = Number((remaining - cost).toFixed(2));
+      }
+    }
+    return {
+      batch: selected,
+      budget: this.maxCycleCost,
+      plannedCost: Number((this.maxCycleCost - remaining).toFixed(2)),
+      remaining: Number(remaining.toFixed(2))
     };
   }
 
