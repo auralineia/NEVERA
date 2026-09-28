@@ -20,7 +20,8 @@ export async function runBacktest({
   marketFactory = defaultMarket,
   simulatorFactory = null,
   dynamicMarketFactory = null,
-  executionEngineFactory = null
+  executionEngineFactory = null,
+  concurrency = 4
 } = {}) {
   const nevera = new Nevera({ initialBalance });
   const brain = new Brain();
@@ -117,16 +118,21 @@ export async function runBacktestBatch({
   executionEngineFactory = null
 } = {}) {
   const results = [];
-  for (let index = 0; index < runs; index += 1) {
-    results.push(await runBacktest({
-      initialBalance,
-      cycles,
-      seed: seed + index,
-      marketFactory,
-      simulatorFactory,
-      dynamicMarketFactory,
-      executionEngineFactory
-    }));
+  const width = Math.max(1, Math.min(runs, Math.floor(Number(concurrency) || 1)));
+  for (let start = 0; start < runs; start += width) {
+    const batch = Array.from(
+      { length: Math.min(width, runs - start) },
+      (_, offset) => runBacktest({
+        initialBalance,
+        cycles,
+        seed: seed + start + offset,
+        marketFactory,
+        simulatorFactory,
+        dynamicMarketFactory,
+        executionEngineFactory
+      })
+    );
+    results.push(...await Promise.all(batch));
   }
 
   const finalBalances = results.map((item) => item.finalBalance);
