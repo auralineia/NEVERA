@@ -49,6 +49,8 @@ import { RiskMemory } from "./risk-memory.js";
 import { evaluateAction } from "./post-action.js";
 import { testStrategy } from "./strategy-evolution.js";
 import { RevenueEngine } from "./revenue-engine.js";
+import { PaymentAdapter } from "./payment-adapter.js";
+import { configuredGlobalSources } from "./global-opportunity-sources.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -78,7 +80,7 @@ const realSandbox = new RealSandbox({
   allowDomains: (process.env.NEVERA_ALLOWED_DOMAINS ?? "example.com").split(",").map((v) => v.trim()).filter(Boolean),
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
-const opportunitySources = normalizeSources(defaultOpportunitySources());
+const opportunitySources = normalizeSources([...defaultOpportunitySources(), ...configuredGlobalSources()]);
 const discovery = new OpportunityDiscovery({
   sandbox: realSandbox,
   sources: opportunitySources.map((source) => ({
@@ -108,6 +110,7 @@ const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
 const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
+const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
 
 const revenueCategories = [
   "DIGITAL_SERVICES",
@@ -181,6 +184,23 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     : planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
   const revenueOffers = revenueEngine.cycle({ opportunities: opportunityBatch.map((item) => ({ ...item.opportunity, score: item.score ?? item.opportunity?.score ?? 0.5 })), maxOffers: 5 });
+  for (const offer of revenueOffers) {
+    try {
+      const payment = revenueEngine.createPaymentIntent(offer);
+      const checkout = await paymentAdapter.createCheckout({
+        paymentId: payment.id,
+        offerId: offer.id,
+        amount: offer.amount,
+        currency: offer.currency,
+        title: offer.title,
+        metadata: { channel: offer.channel, market: offer.market }
+      });
+      payment.checkout = checkout;
+      payment.provider = checkout.provider ?? payment.provider;
+    } catch (error) {
+      telemetry.record("PAYMENT_ADAPTER_ERROR", { cycle, offer: offer.id, message: error.message });
+    }
+  }
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
     try {
@@ -341,7 +361,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     publicOpportunities,
     publicTasks,
     opportunityStats,
-    revenueEngine: revenueEngine.snapshot(),
+    revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
@@ -416,6 +436,6 @@ console.log(JSON.stringify({
   telemetry: telemetry.snapshot(),
   runtime: runtime.snapshot(),
   recovery: recovery.snapshot(),
-  revenueEngine: revenueEngine.snapshot(),
+  revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
