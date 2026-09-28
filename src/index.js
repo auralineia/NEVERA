@@ -13,6 +13,7 @@ import { SurvivalManager } from "./survival.js";
 import { StrategyPortfolio } from "./strategies.js";
 import { calculateMetrics } from "./metrics.js";
 import { DecisionLedger } from "./decision-ledger.js";
+import { ExperimentManager } from "./experiments.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -27,6 +28,7 @@ const creator = new OpportunityCreator();
 const survival = new SurvivalManager();
 const portfolio = new StrategyPortfolio(undefined, 3, saved?.strategies ?? []);
 const ledger = new DecisionLedger(saved?.decisions ?? []);
+const experiments = new ExperimentManager(saved?.experiments ?? []);
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -49,10 +51,16 @@ const startCycle = (saved?.cycle ?? 0) + 1;
 for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
   const cycle = startCycle + offset;
   const strategy = portfolio.choose(cycle);
+  const experiment = experiments.start({
+    cycle,
+    hypothesis: `A estratégia ${strategy.name} pode gerar resultado líquido positivo mantendo o capital dentro dos limites de sobrevivência`,
+    strategy: strategy.name
+  });
   const result = await agent.cycle(strategy);
 
   if (result.action?.outcome) {
     portfolio.record(strategy, result.action.outcome);
+    experiments.complete(experiment.id, result.action.outcome);
   }
 
   ledger.record({
@@ -79,6 +87,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     learning: learning.export(),
     strategies: portfolio.export(),
     decisions: ledger.export(),
+    experiments: experiments.export(),
     metrics,
     lastResult: result
   });
@@ -88,6 +97,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     strategy: strategy.name,
     metrics,
     decisionStats: ledger.stats(),
+    experimentStats: experiments.stats(),
     result
   }, null, 2));
 }
@@ -103,6 +113,8 @@ console.log(JSON.stringify({
   agent: nevera.snapshot(),
   metrics: finalMetrics,
   decisionStats: ledger.stats(),
+  experimentStats: experiments.stats(),
   recentDecisions: ledger.recent(5),
+  recentExperiments: experiments.recent(5),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
