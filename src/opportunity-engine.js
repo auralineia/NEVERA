@@ -1,7 +1,8 @@
 export class OpportunityEngine {
-  constructor({ evaluator, maxQueue = 10 } = {}) {
+  constructor({ evaluator, maxQueue = 10, economicMemory = null } = {}) {
     this.evaluator = evaluator;
     this.maxQueue = maxQueue;
+    this.economicMemory = economicMemory;
     this.queue = [];
   }
 
@@ -13,13 +14,20 @@ export class OpportunityEngine {
       }))
       .filter((item) => item.evaluation.viable)
       .sort((a, b) => {
-        const av = a.evaluation.viabilityScore ?? 0;
-        const bv = b.evaluation.viabilityScore ?? 0;
+        const av = this.adjustedScore(a);
+        const bv = this.adjustedScore(b);
         return bv - av;
       });
 
     this.queue = ranked.slice(0, this.maxQueue);
     return this.queue;
+  }
+
+  adjustedScore(item) {
+    const base = item.evaluation.viabilityScore ?? 0;
+    const stats = this.economicMemory?.stats(item.opportunity.category);
+    if (!stats?.attempts) return base;
+    return base + Math.max(-0.25, Math.min(0.25, stats.averageNet / 20));
   }
 
   next() {
