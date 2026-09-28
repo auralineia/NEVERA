@@ -70,6 +70,7 @@ const guardrails = new Guardrails({
   reserveRatio: Number(process.env.NEVERA_RESERVE_RATIO ?? 0.5),
   maxOperationCost: Number(process.env.NEVERA_MAX_OPERATION_COST ?? 1),
   dailyLossLimit: Number(process.env.NEVERA_DAILY_LOSS_LIMIT ?? 2),
+  maxDrawdown: Number(process.env.NEVERA_MAX_DRAWDOWN ?? 0.5),
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
 const realSandbox = new RealSandbox({
@@ -88,6 +89,7 @@ const discovery = new OpportunityDiscovery({
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
+guardrails.peakBalance = Number(saved?.guardrails?.peakBalance ?? saved?.balance ?? initialBalance);
 const telemetry = new Telemetry();
 const objectiveManager = new ObjectiveManager();
 const brain = new Brain(objectiveManager);
@@ -144,6 +146,7 @@ const cycleDelayMs = Math.max(0, Number(process.env.NEVERA_CYCLE_DELAY_MS ?? 0))
 for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD"; offset += 1) {
   const cycle = startCycle + offset;
   runtime.cycleStarted(cycle);
+  guardrails.observe(nevera.snapshot().economy.balance);
   telemetry.record("CYCLE_START", { cycle });
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
@@ -330,6 +333,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     failureMemory: failureMemory.export(),
     decisionMemory: decisionMemory.export(),
     riskMemory: riskMemory.export(),
+    economicSandbox: { mode: "MULTI_REGIME_SIMULATION" },
     longTermMemory: longTermMemory.export(),
     cycleController: cycleController.snapshot(),
     decisionFilter: decisionFilter.recent(),
