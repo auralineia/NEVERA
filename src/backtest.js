@@ -16,12 +16,13 @@ import { DynamicMarket } from "./dynamic-market.js";
 export async function runBacktest({
   initialBalance = 10,
   cycles = 100,
-  seed = 42
+  seed = 42,
+  marketFactory = defaultMarket
 } = {}) {
   const nevera = new Nevera({ initialBalance });
   const brain = new Brain();
   const tools = createSimulationTools();
-  const market = defaultMarket();
+  const market = marketFactory();
   const learning = new Learning();
   const creator = new OpportunityCreator();
   const survival = new SurvivalManager();
@@ -85,14 +86,16 @@ export async function runBacktestBatch({
   runs = 20,
   cycles = 100,
   initialBalance = 10,
-  seed = 42
+  seed = 42,
+  marketFactory = defaultMarket
 } = {}) {
   const results = [];
   for (let index = 0; index < runs; index += 1) {
     results.push(await runBacktest({
       initialBalance,
       cycles,
-      seed: seed + index
+      seed: seed + index,
+      marketFactory
     }));
   }
 
