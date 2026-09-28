@@ -20,3 +20,18 @@ test("NEVERA adapta a oportunidade com base no histórico", () => {
 
   assert.equal(opportunity.category, "SERVICE");
 });
+
+
+test("NEVERA descobre oportunidade a partir do contexto de mercado", () => {
+  const creator = new OpportunityCreator();
+  const opportunity = creator.discover({
+    stats: () => ({ attempts: 4, successRate: 0.75 })
+  }, {
+    demand: 1.2,
+    competition: 0.8
+  });
+
+  assert.equal(opportunity.source, "NEVERA_DISCOVERY");
+  assert.equal(opportunity.category, "SERVICE");
+  assert.ok(opportunity.estimatedRevenue > opportunity.estimatedCost);
+});
