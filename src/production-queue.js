@@ -100,12 +100,6 @@ export class ProductionQueue {
   }
 
   snapshot() {
-    return this.items.map((item) => ({
-      name: item.opportunity?.name ?? null,
-      score: item.choice?.score ?? null,
-      priorityScore: item.priorityScore ?? null,
-      category: item.opportunity?.category ?? null,
-      retryCount: item.retryCount ?? 0
-    }));
+    return structuredClone(this.items);
   }
 }
