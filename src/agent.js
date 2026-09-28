@@ -150,6 +150,7 @@ export class NeveraAgent {
       survival: executionCheck,
       strategy: strategyProfile?.name ?? "UNSPECIFIED",
       action: { tool: "research_opportunity", research, outcome },
+      marketEvent,
       learning: this.learning.stats()
     };
   }
