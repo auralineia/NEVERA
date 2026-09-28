@@ -1,7 +1,15 @@
 export class Brain {
-  constructor() {
+  constructor(objectiveManager = null) {
     this.objectives = [];
     this.memory = [];
+    this.objectiveManager = objectiveManager;
+  }
+
+  updateObjective(context) {
+    if (!this.objectiveManager) return null;
+    const objective = this.objectiveManager.update(context);
+    this.setObjective(objective);
+    return objective;
   }
 
   setObjective(objective) {
