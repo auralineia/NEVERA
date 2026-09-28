@@ -80,9 +80,19 @@ export class DynamicMarket {
   }
 
   consume(opportunity) {
+    return this.reserve(opportunity);
+  }
+
+  reserve(opportunity) {
     const category = this.#category(opportunity);
     if (!this.hasDemand(opportunity)) return false;
     this.demandPool[category] -= 1;
+    return true;
+  }
+
+  release(opportunity) {
+    const category = this.#category(opportunity);
+    this.demandPool[category] = (this.demandPool[category] ?? 0) + 1;
     return true;
   }
 
