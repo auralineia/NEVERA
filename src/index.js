@@ -58,10 +58,10 @@ const agent = new NeveraAgent(
 );
 
 let explorationInterval = saved?.explorationInterval ?? 3;
-const throughput = new ThroughputController(saved?.throughput ?? undefined);
+const throughput = new ThroughputController(saved?.throughput ? { ...saved.throughput, initial: saved.throughput.current } : undefined);
 const startCycle = (saved?.cycle ?? 0) + 1;
 
-for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
+for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset += 1) {
   const cycle = startCycle + offset;
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
