@@ -31,6 +31,10 @@ export function calculateProductionPriority(item, learning = null, weights = DEF
   const demand = opportunity.demand ?? opportunity.marketContext?.demand ?? 1;
   const demandSignal = clamp(demand - 1, -1, 1);
   const historySignal = normalizedCategoryHistory(learning, opportunity.category);
+  const attribution = learning?.attribution?.({ category: opportunity.category });
+  const attributionSignal = attribution?.attempts >= 3
+    ? clamp((attribution.successRate - 0.5) + attribution.averageNet / 10, -1, 1)
+    : 0;
   const pattern = learning?.patternStats?.({
     category: opportunity.category,
     demand,
@@ -53,6 +57,7 @@ export function calculateProductionPriority(item, learning = null, weights = DEF
     demandSignal * weights.demand +
     historySignal * weights.history +
     patternSignal * weights.history +
+    attributionSignal * weights.history * 0.5 +
     regimePenalty * weights.history
   ).toFixed(4));
 }
