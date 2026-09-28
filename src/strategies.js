@@ -16,6 +16,15 @@ export class StrategyPortfolio {
   }
 
   choose(cycle = 1) {
+    const stats = this.stats();
+    const underTested = stats
+      .filter((item) => item.attempts < 3)
+      .sort((a, b) => a.attempts - b.attempts)[0];
+
+    if (underTested) {
+      return this.strategies.find((item) => item.name === underTested.strategy);
+    }
+
     if (cycle > 0 && cycle % this.explorationInterval === 0) {
       return this.strategies[
         (cycle / this.explorationInterval - 1) % this.strategies.length
