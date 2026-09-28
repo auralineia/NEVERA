@@ -3,12 +3,18 @@ export class StrategyPortfolio {
     { name: "CONSERVATIVE", riskMultiplier: 0.8, revenueMultiplier: 0.9 },
     { name: "BALANCED", riskMultiplier: 1, revenueMultiplier: 1 },
     { name: "EXPLORATORY", riskMultiplier: 1.2, revenueMultiplier: 1.15 }
-  ]) {
+  ], explorationInterval = 3) {
     this.strategies = strategies;
     this.results = [];
+    this.explorationInterval = explorationInterval;
   }
 
-  choose() {
+  choose(cycle = 1) {
+    // Periodically explore a different strategy so the agent keeps learning.
+    if (cycle > 0 && cycle % this.explorationInterval === 0) {
+      return this.strategies[(cycle / this.explorationInterval - 1) % this.strategies.length];
+    }
+
     if (this.results.length === 0) return this.strategies[1];
 
     const scored = this.strategies.map((strategy) => {
