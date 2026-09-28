@@ -44,10 +44,12 @@ export class NeveraAgent {
     }
     if (batch.length > 1) {
       const results = await this.executePreparedBatch(batch, strategyProfile);
+      results.forEach((result) => this.productionQueue.recordResult(result));
       actions.push(...results);
     } else {
       for (let index = 0; index < maxActions; index += 1) {
         const result = await this.cycleOnce(strategyProfile, { resetResources: false });
+        this.productionQueue.recordResult(result);
         actions.push(result);
         if (!result.action?.outcome) break;
       }
@@ -58,6 +60,7 @@ export class NeveraAgent {
       actions,
       production: {
         requested: maxActions,
+        queue: this.productionQueue.stats(),
         executed: actions.filter((item) => item.action?.outcome).length,
         outcomes: actions.map((item) => item.action?.outcome ?? null)
       }
