@@ -30,7 +30,7 @@ export class ExecutionEngine {
     if (!plan.supported) {
       return {
         status: "REJECTED",
-        reason: "UNSUPPORTED_CAPABILITY",
+        reason: plan.reason,
         category: plan.category,
         output: null,
         deliverable: null,
