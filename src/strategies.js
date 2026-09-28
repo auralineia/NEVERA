@@ -18,6 +18,8 @@ export class StrategyPortfolio {
   choose(cycle = 1) {
     if (this.results.length === 0) return this.strategies[1];
 
+    if (this.results.length === 0) return this.strategies[1];
+
     const stats = this.stats();
     const underTested = stats
       .filter((item) => item.attempts < 3)
