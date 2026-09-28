@@ -155,6 +155,30 @@ export class NeveraAgent {
       return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
     }
 
+    const demandReserved = this.dynamicMarket
+      ? this.dynamicMarket.consume(choice.opportunity)
+      : true;
+
+    if (!demandReserved) {
+      const result = { status: "NO_ACTION", reason: "MARKET_DEMAND_EXHAUSTED" };
+      this.nevera.log("MARKET_REJECTED", result);
+      return {
+        decision,
+        createdOpportunity: created,
+        createdEvaluation,
+        candidates,
+        opportunity: choice.opportunity,
+        score: choice.score,
+        selectedEvaluation: selected.evaluation,
+        survival: executionCheck,
+        strategy: strategyProfile?.name ?? "UNSPECIFIED",
+        action: { tool: "research_opportunity", research, outcome: null },
+        marketEvent,
+        result,
+        learning: this.learning.stats()
+      };
+    }
+
     const executionPlan = this.executionEngine.plan(executionOpportunity);
     this.nevera.log("EXECUTION_PLAN", {
       opportunity: choice.opportunity.name,
@@ -257,30 +281,6 @@ export class NeveraAgent {
 
     if (outcome.revenue > 0 && outcome.status === "SUCCESS") {
       this.nevera.earn(outcome.revenue, `delivered: ${choice.opportunity.name}`);
-    }
-
-    if (this.dynamicMarket && !this.dynamicMarket.consume(choice.opportunity)) {
-      const result = {
-        status: "NO_ACTION",
-        reason: "MARKET_DEMAND_EXHAUSTED"
-      };
-      this.nevera.log("MARKET_REJECTED", result);
-      return {
-        decision,
-        createdOpportunity: created,
-        createdEvaluation,
-        candidates,
-        opportunity: choice.opportunity,
-        score: choice.score,
-        selectedEvaluation: selected.evaluation,
-        survival: executionCheck,
-        strategy: strategyProfile?.name ?? "UNSPECIFIED",
-        action: { tool: "research_opportunity", research, executionPlan, execution, outcome: null },
-        marketEvent,
-        result,
-        quality,
-        learning: this.learning.stats()
-      };
     }
 
     choice.opportunity.estimatedRevenue = executionOpportunity.estimatedRevenue;
