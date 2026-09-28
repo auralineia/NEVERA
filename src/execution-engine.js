@@ -7,6 +7,10 @@ export class ExecutionEngine {
     this.resourceManager = resources instanceof ResourceManager ? resources : new ResourceManager(resources ?? undefined);
   }
 
+  beginCycle() {
+    return this.resourceManager.beginCycle();
+  }
+
   plan(opportunity) {
     const category = opportunity?.category ?? "RESEARCH";
     const supported = this.capabilities.has(category);
@@ -42,7 +46,20 @@ export class ExecutionEngine {
 
     const steps = plan.steps;
     const output = this.#buildOutput(opportunity, steps);
-    this.resourceManager.reserve(plan.requiredResources);
+    const reserved = this.resourceManager.reserve(plan.requiredResources);
+
+    if (!reserved) {
+      return {
+        status: "REJECTED",
+        reason: "RESOURCE_UNAVAILABLE",
+        category: plan.category,
+        output: null,
+        deliverable: null,
+        actualCost: 0,
+        duration: 0,
+        steps: []
+      };
+    }
 
     return {
       status: "SUCCESS",
@@ -55,7 +72,8 @@ export class ExecutionEngine {
       },
       actualCost: plan.estimatedCost,
       duration: steps.length,
-      steps
+      steps,
+      resourcesUsed: plan.requiredResources
     };
   }
 
