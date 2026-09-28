@@ -47,6 +47,12 @@ export class StrategyPortfolio {
     return scored[0].strategy;
   }
 
+  addStrategy(strategy) {
+    if (!strategy?.name || this.strategies.some((item) => item.name === strategy.name)) return false;
+    this.strategies.push(strategy);
+    return true;
+  }
+
   record(strategy, outcome) {
     this.results.push({
       strategy: strategy.name,
