@@ -2,6 +2,7 @@ export function validateExecution({ opportunity, execution, outcome }) {
   const checks = {
     executionSucceeded: execution?.status === "SUCCESS",
     hasDeliverable: Boolean(execution?.deliverable?.content),
+    deliverableNotSimulation: !String(execution?.deliverable?.content ?? "").toLowerCase().includes("inside nevera simulation"),
     categoryMatches: execution?.category === opportunity?.category,
     costMatches: Number(execution?.actualCost ?? 0) === Number(opportunity?.estimatedCost ?? 0),
     outcomeValid: outcome?.status === "SUCCESS" || outcome?.status === "FAILURE" || outcome?.status === "PENDING_PAYMENT",
