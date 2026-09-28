@@ -16,6 +16,7 @@ jobs:
           node-version: 20
       - run: npm test
       - name: Run large backtest
+        timeout-minutes: 3
         run: node scripts/backtest.js > backtest-result.json
       - name: Upload backtest result
         uses: actions/upload-artifact@v4
@@ -24,6 +25,7 @@ jobs:
           path: backtest-result.json
 
       - name: Run adversarial stress test
+        timeout-minutes: 3
         run: node scripts/stress-test.js > stress-test-result.json
       - name: Print stress test summary
         run: |
