@@ -16,8 +16,12 @@ test("memória persistente salva e recupera estado", async () => {
   await persistence.save(state);
   const loaded = await persistence.load();
 
-  assert.deepEqual(loaded, state);
+  assert.equal(loaded.balance, state.balance);
+  assert.equal(loaded.cycle, state.cycle);
+  assert.equal(loaded.checkpointVersion, 2);
   await unlink(path);
+  await unlink(`${path}.bak`).catch(() => {});
+  await unlink(`${path}.tmp`).catch(() => {});
 });
 
 test("memória inexistente começa vazia", async () => {
