@@ -75,3 +75,38 @@ test("backtest nunca produz saldo negativo mesmo em cenário adverso", async () 
   assert.ok(result.finalBalance >= 0);
   assert.ok(result.alive || result.status === "DEAD");
 });
+
+
+test("backtest aceita simulador adversarial injetado", async () => {
+  const marketFactory = () => new (class {
+    available() {
+      return [{
+        name: "Aposta barata e ruim",
+        category: "SERVICE",
+        estimatedRevenue: 1.6,
+        estimatedCost: 1.5,
+        risk: 0.8,
+        effort: 3,
+        status: "OPEN"
+      }];
+    }
+    add() {}
+  })();
+
+  const result = await runBacktest({
+    initialBalance: 10,
+    cycles: 10,
+    seed: 55,
+    marketFactory,
+    simulatorFactory: () => () => ({
+      status: "FAILURE",
+      revenue: 0,
+      cost: 1.5,
+      net: -1.5
+    })
+  });
+
+  assert.ok(result.finalBalance < result.initialBalance);
+  assert.ok(result.finalBalance >= 0);
+  assert.ok(result.cyclesExecuted <= 10);
+});
