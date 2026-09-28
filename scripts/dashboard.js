@@ -13,14 +13,25 @@ if (publicMode && !token) {
 
 function authorized(req) {
   if (!publicMode) return true;
-  return req.headers.authorization === `Bearer ${token}`;
+  const header = req.headers.authorization ?? "";
+  if (header === `Bearer ${token}`) return true;
+  if (header.startsWith("Basic ")) {
+    try {
+      const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+      const separator = decoded.indexOf(":");
+      return separator >= 0 && decoded.slice(separator + 1) === token;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 function unauthorized(res) {
   res.writeHead(401, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
-    "www-authenticate": "Bearer"
+    "www-authenticate": 'Basic realm="NEVERA"',
   });
   res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
 }
