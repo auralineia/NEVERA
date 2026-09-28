@@ -23,9 +23,9 @@ export function strategyConfidence(results, strategyName) {
   const netConfidence = Math.max(0, Math.min(1, (averageNet + 2) / 12));
 
   const confidence =
-    sampleConfidence * 0.35 +
-    successConfidence * 0.4 +
-    netConfidence * 0.25;
+    sampleConfidence * 0.55 +
+    successConfidence * 0.25 +
+    netConfidence * 0.20;
 
   return {
     strategy: strategyName,
