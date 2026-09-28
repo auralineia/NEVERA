@@ -1,24 +1,28 @@
-# Segurança
+# Segurança da NEVERA
 
-## Nunca colocar no GitHub
+## Princípios
 
-- private keys;
-- seed phrases;
-- API keys;
-- tokens de acesso;
-- arquivos de carteira;
-- dados pessoais desnecessários.
+- Nunca colocar private keys, seed phrases, API keys, access tokens ou arquivos de carteira no GitHub.
+- A NEVERA permanece isolada de Aura/RIMAK e não reutiliza credenciais de outros projetos.
+- O estado econômico inicial é virtual/simulado.
+- Pagamentos, transferências, carteiras e dinheiro real permanecem desabilitados na fase atual.
 
-## Isolamento
+## Sandbox
 
-A carteira do Automaton deve ser nova e exclusiva para o experimento.
+A camada externa permite somente operações públicas explicitamente autorizadas, sem credenciais e sem pagamentos.
 
-As credenciais e arquivos sensíveis devem permanecer fora do repositório.
+O kill switch e os limites econômicos devem permanecer disponíveis no ambiente de execução.
 
-Nenhuma credencial da Aura/RIMAK deve ser reutilizada neste projeto.
+## Preflight
 
-## Financiamento
+Antes de uma execução de beta, `npm run preflight` verifica:
 
-O projeto deve começar com saldo zero.
+- Node.js 20+;
+- arquivos e scripts essenciais;
+- ausência de variáveis de ambiente sensíveis;
+- kill switch inativo;
+- dinheiro real explicitamente desabilitado.
 
-Somente depois de verificar a instalação e a configuração será considerado um pequeno aporte de teste, limitado a R$10.
+## Próxima fase
+
+Qualquer experimento com dinheiro real deverá ser tratado como uma fase separada, com limites independentes, revisão de segurança e opt-in explícito. Nenhuma capacidade de dinheiro real é ativada automaticamente pela NEVERA.
