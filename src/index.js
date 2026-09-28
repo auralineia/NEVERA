@@ -44,6 +44,9 @@ import { CycleController } from "./cycle-controller.js";
 import { LongTermMemory } from "./long-term-memory.js";
 import { metaLearn } from "./meta-learning.js";
 import { DecisionFilter } from "./decision-filter.js";
+import { StrategyLab } from "./strategy-lab.js";
+import { evaluateStrategy } from "./strategy-evaluator.js";
+import { StrategyMemory } from "./strategy-memory.js";
 
 
 const persistence = new Persistence();
@@ -91,6 +94,8 @@ const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.e
 const cycleController = new CycleController();
 const longTermMemory = new LongTermMemory(saved?.longTermMemory ?? []);
 const decisionFilter = new DecisionFilter();
+const strategyLab = new StrategyLab();
+const strategyMemory = new StrategyMemory(saved?.strategyMemory ?? []);
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
@@ -158,6 +163,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const meta = metaLearn({ strategies: portfolio.stats(), experiments: experiments.recent(20), failures: learning.stats().failures ?? 0 });
+  const experimentalStrategy = strategyLab.generate({ riskTolerance: guardrails.maxOperationCost / 2, costLimit: guardrails.maxOperationCost });
+  longTermMemory.remember("STRATEGY_GENERATED", experimentalStrategy);
   const strategy = portfolio.choose(cycle);
   longTermMemory.remember("META_LEARNING", meta);
   const cycleDecision = cycleController.decide({
@@ -307,6 +314,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     longTermMemory: longTermMemory.export(),
     cycleController: cycleController.snapshot(),
     decisionFilter: decisionFilter.recent(),
+    strategyMemory: strategyMemory.export(),
+    strategyLab: strategyLab.list(),
     objective: objectiveManager.snapshot(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
