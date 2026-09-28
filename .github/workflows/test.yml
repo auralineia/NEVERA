@@ -21,3 +21,11 @@ jobs:
         with:
           name: nevera-backtest
           path: backtest-result.json
+
+      - name: Run adversarial stress test
+        run: node scripts/stress-test.js > stress-test-result.json
+      - name: Upload stress test result
+        uses: actions/upload-artifact@v4
+        with:
+          name: nevera-stress-test
+          path: stress-test-result.json
