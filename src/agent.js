@@ -1,5 +1,6 @@
 import { ExecutionEngine } from "./execution-engine.js";
 import { validateExecution } from "./quality.js";
+import { CapitalPolicy } from "./capital-policy.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -15,6 +16,7 @@ export class NeveraAgent {
     this.survival = survival;
     this.dynamicMarket = dynamicMarket;
     this.executionEngine = executionEngine ?? new ExecutionEngine();
+    this.capitalPolicy = new CapitalPolicy();
   }
 
   async cycle(strategyProfile = null) {
@@ -120,7 +122,8 @@ export class NeveraAgent {
       score: choice.score,
       strategy: strategyProfile?.name ?? "UNSPECIFIED",
       evaluation: selected.evaluation,
-      survival: selected.survival
+      survival: selected.survival,
+      capitalPolicy: capitalDecision
     });
 
     const research = await this.tools.execute("research_opportunity", {
@@ -147,6 +150,23 @@ export class NeveraAgent {
       state.economy.balance,
       executionOpportunity
     );
+
+    const capitalDecision = this.capitalPolicy.decide(
+      state.economy.balance,
+      executionOpportunity
+    );
+
+    this.nevera.log("CAPITAL_POLICY", capitalDecision);
+
+    if (!capitalDecision.allowed) {
+      const result = {
+        status: "NO_ACTION",
+        reason: capitalDecision.reason,
+        capitalDecision
+      };
+      this.nevera.log("CAPITAL_DECISION", result);
+      return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
+    }
 
     if (!executionCheck.allowed) {
       const result = {
