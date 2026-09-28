@@ -28,6 +28,11 @@ export class ExecutionEngine {
     };
   }
 
+  async executeBatch(opportunities = []) {
+    const results = await Promise.all(opportunities.map((opportunity) => this.execute(opportunity)));
+    return results;
+  }
+
   async execute(opportunity) {
     const plan = this.plan(opportunity);
 
