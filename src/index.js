@@ -118,9 +118,14 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     production: agent.productionQueue.stats()
   });
 
+  const experimentEvidence = experiments.recent(20)
+    .map((item) => experiments.evaluate(item.id))
+    .filter(Boolean);
+
   const adaptation = adaptationEngine.adapt({
     strategyStats: portfolio.stats(),
     experimentStats: experiments.stats(),
+    experimentEvidence,
     currentExplorationInterval: explorationInterval
   });
   explorationInterval = adaptation.explorationInterval;
@@ -133,6 +138,7 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     strategies: portfolio.export(),
     decisions: ledger.export(),
     experiments: experiments.export(),
+    experimentEvidence,
     explorationInterval,
     throughput: throughput.snapshot(),
     priorityWeights: agent.priorityWeights,
