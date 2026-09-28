@@ -140,7 +140,13 @@ export class NeveraAgent {
   }
 
   async executePreparedBatch(batch, strategyProfile = null) {
-    const prepared = batch.map((item) => ({
+    const results = batch.map(() => ({
+      result: { status: "NO_ACTION", reason: "UNPROCESSED" },
+      action: { outcome: null }
+    }));
+
+    const prepared = batch.map((item, index) => ({
+      index,
       item,
       opportunity: transformOpportunity(item.choice.opportunity, strategyProfile)
     }));
@@ -148,43 +154,63 @@ export class NeveraAgent {
     const executable = prepared.filter(({ opportunity }) =>
       this.capitalPolicy.decide(this.nevera.snapshot().economy.balance, opportunity).allowed
     );
-    if (!executable.length) return batch.map(() => ({ result: { status: "NO_ACTION", reason: "HOLD_CAPITAL" }, action: { outcome: null } }));
+
+    if (!executable.length) {
+      results.forEach((result) => {
+        result.result = { status: "NO_ACTION", reason: "HOLD_CAPITAL" };
+      });
+      return results;
+    }
 
     const demandOk = executable.map(({ opportunity }) =>
       this.dynamicMarket ? this.dynamicMarket.consume(opportunity) : true
     );
+
     if (demandOk.some((ok) => !ok)) {
       executable.forEach(({ opportunity }, index) => {
         if (demandOk[index] === true) this.dynamicMarket?.release(opportunity);
       });
-      return batch.map(() => ({ result: { status: "NO_ACTION", reason: "MARKET_DEMAND_EXHAUSTED" }, action: { outcome: null } }));
+      results.forEach((result) => {
+        result.result = { status: "NO_ACTION", reason: "MARKET_DEMAND_EXHAUSTED" };
+      });
+      return results;
     }
 
     const executions = await this.executionEngine.executeBatch(
       executable.map(({ opportunity }) => opportunity)
     );
 
-    const results = [];
     for (let index = 0; index < executable.length; index += 1) {
-      const { item, opportunity } = executable[index];
+      const { item, opportunity, index: resultIndex } = executable[index];
       const execution = executions[index];
+
       if (execution?.status !== "SUCCESS") {
         this.dynamicMarket?.release(opportunity);
         this.executionEngine.releaseExecution?.(execution);
-        results.push({ result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } });
+        results[resultIndex] = {
+          result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" },
+          action: { execution, outcome: null }
+        };
         continue;
       }
 
       const outcome = await this.simulator(opportunity);
       const quality = validateExecution({ opportunity, execution, outcome });
+
       if (!quality.passed) {
         this.dynamicMarket?.release(opportunity);
         this.executionEngine.releaseExecution?.(execution);
-        results.push({ result: { status: "NO_ACTION", reason: "QUALITY_GATE_FAILED" }, action: { execution, outcome: null } });
+        results[resultIndex] = {
+          result: { status: "NO_ACTION", reason: "QUALITY_GATE_FAILED" },
+          action: { execution, outcome: null }
+        };
         continue;
       }
 
-      if (outcome.cost > 0) this.nevera.spend(outcome.cost, `executed: ${item.choice.opportunity.name}`);
+      if (outcome.cost > 0) {
+        this.nevera.spend(outcome.cost, `executed: ${item.choice.opportunity.name}`);
+      }
+
       if (outcome.revenue > 0 && outcome.status === "SUCCESS") {
         this.nevera.earn(outcome.revenue, `delivered: ${item.choice.opportunity.name}`);
       }
@@ -193,12 +219,12 @@ export class NeveraAgent {
       item.choice.opportunity.estimatedRevenue = opportunity.estimatedRevenue;
       this.learning.record(item.choice.opportunity, outcome);
 
-      results.push({
+      results[resultIndex] = {
         opportunity: item.choice.opportunity,
         score: item.choice.score,
         result: { status: "EXECUTED" },
         action: { execution, outcome }
-      });
+      };
     }
 
     return results;
@@ -221,7 +247,6 @@ export class NeveraAgent {
     const execution = await this.executionEngine.execute(executionOpportunity);
     if (execution.status !== "SUCCESS") {
       this.executionEngine.releaseExecution?.(execution);
-      this.dynamicMarket?.release(opportunity);
       this.dynamicMarket?.release(opportunity);
       return { result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } };
     }
@@ -465,6 +490,7 @@ export class NeveraAgent {
     const execution = await this.executionEngine.execute(executionOpportunity);
 
     if (execution.status !== "SUCCESS") {
+      this.executionEngine.releaseExecution?.(execution);
       this.dynamicMarket?.release(choice.opportunity);
       const result = {
         status: "NO_ACTION",
@@ -499,6 +525,7 @@ export class NeveraAgent {
     this.nevera.log("QUALITY_GATE", quality);
 
     if (!quality.passed) {
+      this.executionEngine.releaseExecution?.(execution);
       this.dynamicMarket?.release(choice.opportunity);
       const result = {
         status: "NO_ACTION",
