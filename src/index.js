@@ -18,6 +18,12 @@ import { HypothesisEngine } from "./hypotheses.js";
 import { AdaptationEngine } from "./adaptation.js";
 import { DynamicMarket } from "./dynamic-market.js";
 import { ThroughputController } from "./throughput.js";
+import { Guardrails } from "./guardrails.js";
+import { RealSandbox } from "./real-sandbox.js";
+import { OpportunityDiscovery } from "./opportunity-discovery.js";
+import { TaskExecutor } from "./task-executor.js";
+import { Telemetry } from "./telemetry.js";
+
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -35,6 +41,23 @@ const ledger = new DecisionLedger(saved?.decisions ?? []);
 const experiments = new ExperimentManager(saved?.experiments ?? []);
 const hypothesisEngine = new HypothesisEngine();
 const adaptationEngine = new AdaptationEngine();
+const guardrails = new Guardrails({
+  reserveRatio: Number(process.env.NEVERA_RESERVE_RATIO ?? 0.5),
+  maxOperationCost: Number(process.env.NEVERA_MAX_OPERATION_COST ?? 1),
+  dailyLossLimit: Number(process.env.NEVERA_DAILY_LOSS_LIMIT ?? 2),
+  killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
+});
+const realSandbox = new RealSandbox({
+  allowDomains: (process.env.NEVERA_ALLOWED_DOMAINS ?? "example.com").split(",").map((v) => v.trim()).filter(Boolean),
+  killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
+});
+const discovery = new OpportunityDiscovery({
+  sandbox: realSandbox,
+  sources: [{ name: "public-sandbox-source", url: process.env.NEVERA_SANDBOX_URL ?? "https://example.com" }]
+});
+const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
+const telemetry = new Telemetry();
+
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
   saved?.marketEvents ?? null
@@ -72,6 +95,9 @@ const cycleDelayMs = Math.max(0, Number(process.env.NEVERA_CYCLE_DELAY_MS ?? 0))
 
 for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD"; offset += 1) {
   const cycle = startCycle + offset;
+  telemetry.record("CYCLE_START", { cycle });
+  const publicSources = await discovery.scan();
+  telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length });
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
   agent.experimentEvidence = experiments.recent(20)
@@ -87,6 +113,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     strategy: strategy.name
   });
   const result = await agent.cycle(strategy, { maxActions: throughput.current });
+  telemetry.record("AGENT_CYCLE", { cycle, executed: result.production?.executed ?? 0 });
   const throughputDecision = throughput.decide({
     outcomes: result.production?.outcomes ?? [],
     balance: nevera.snapshot().economy.balance,
@@ -158,6 +185,10 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     marketSeed: 42,
     marketEvents: dynamicMarket.state(),
     metrics,
+    guardrails: guardrails.snapshot(),
+    sandbox: realSandbox.snapshot(),
+    taskExecutor: taskExecutor.snapshot(),
+    telemetry: telemetry.snapshot(),
     lastResult: result
   });
 
@@ -191,5 +222,8 @@ console.log(JSON.stringify({
   explorationInterval,
   marketEvent: dynamicMarket.lastEvent,
   marketState: dynamicMarket.state(),
+  guardrails: guardrails.snapshot(),
+  sandbox: realSandbox.snapshot(),
+  telemetry: telemetry.snapshot(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
