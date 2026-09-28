@@ -1,3 +1,5 @@
+import { assessRisk } from "./risk-engine.js";
+
 export class OpportunityEngine {
   constructor({ evaluator, maxQueue = 10, economicMemory = null, failureMemory = null } = {}) {
     this.evaluator = evaluator;
@@ -11,9 +13,10 @@ export class OpportunityEngine {
     const ranked = opportunities
       .map((opportunity) => ({
         opportunity,
-        evaluation: this.evaluator(opportunity, balance)
+        evaluation: this.evaluator(opportunity, balance),
+        risk: assessRisk(opportunity, balance)
       }))
-      .filter((item) => item.evaluation.viable)
+      .filter((item) => item.evaluation.viable && item.risk.allowed)
       .sort((a, b) => {
         const av = this.adjustedScore(a);
         const bv = this.adjustedScore(b);
