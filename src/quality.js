@@ -5,6 +5,7 @@ export function validateExecution({ opportunity, execution, outcome }) {
     categoryMatches: execution?.category === opportunity?.category,
     costMatches: Number(execution?.actualCost ?? 0) === Number(opportunity?.estimatedCost ?? 0),
     outcomeValid: outcome?.status === "SUCCESS" || outcome?.status === "FAILURE",
+    outcomeCostMatches: Number(outcome?.cost ?? 0) === Number(execution?.actualCost ?? 0),
     nonNegativeCost: Number(execution?.actualCost ?? 0) >= 0
   };
 
