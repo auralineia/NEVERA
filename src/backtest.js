@@ -17,7 +17,10 @@ export async function runBacktest({
   initialBalance = 10,
   cycles = 100,
   seed = 42,
-  marketFactory = defaultMarket
+  marketFactory = defaultMarket,
+  simulatorFactory = null,
+  dynamicMarketFactory = null,
+  executionEngineFactory = null
 } = {}) {
   const nevera = new Nevera({ initialBalance });
   const brain = new Brain();
@@ -28,36 +31,44 @@ export async function runBacktest({
   const survival = new SurvivalManager();
   const portfolio = new StrategyPortfolio();
   const adaptation = new AdaptationEngine();
-  const dynamicMarket = new DynamicMarket(seed);
+  const dynamicMarket = dynamicMarketFactory
+    ? dynamicMarketFactory(seed)
+    : new DynamicMarket(seed);
   const random = createSeededRandom(seed * 7919 + 17);
+  const simulator = simulatorFactory
+    ? simulatorFactory(random, seed)
+    : (opportunity) => simulateOutcome(opportunity, random);
+  const executionEngine = executionEngineFactory
+    ? executionEngineFactory(seed)
+    : null;
 
   nevera.boot();
   brain.setObjective("Testar geração sustentável de receita em ambiente simulado");
 
   const agent = new NeveraAgent(
     nevera, brain, tools, chooseOpportunity, market,
-    (opportunity) => simulateOutcome(opportunity, random), learning, creator, evaluateOpportunity,
-    survival, dynamicMarket
+    simulator, learning, creator, evaluateOpportunity,
+    survival, dynamicMarket, executionEngine
   );
 
   let explorationInterval = 3;
-  let executed = 0;
+  let cyclesWithOutcome = 0;
+  let cyclesExecuted = 0;
 
   for (let cycle = 1; cycle <= cycles && nevera.snapshot().status !== "DEAD"; cycle += 1) {
+    cyclesExecuted += 1;
     portfolio.explorationInterval = explorationInterval;
     const strategy = portfolio.choose(cycle);
     const result = await agent.cycle(strategy);
 
     if (result.action?.outcome) {
-      executed += 1;
+      cyclesWithOutcome += 1;
       portfolio.record(strategy, result.action.outcome);
     }
 
     const next = adaptation.adapt({
       strategyStats: portfolio.stats(),
-      experimentStats: {
-        successRate: learning.stats().successRate
-      },
+      experimentStats: { successRate: learning.stats().successRate },
       currentExplorationInterval: explorationInterval
     });
     explorationInterval = next.explorationInterval;
@@ -71,7 +82,8 @@ export async function runBacktest({
     finalBalance,
     netWorthChange: Number((finalBalance - initialBalance).toFixed(2)),
     cyclesRequested: cycles,
-    cyclesExecuted: executed,
+    cyclesExecuted,
+    cyclesWithOutcome,
     attempts: stats.attempts,
     successRate: stats.successRate,
     net: stats.net,
@@ -87,7 +99,10 @@ export async function runBacktestBatch({
   cycles = 100,
   initialBalance = 10,
   seed = 42,
-  marketFactory = defaultMarket
+  marketFactory = defaultMarket,
+  simulatorFactory = null,
+  dynamicMarketFactory = null,
+  executionEngineFactory = null
 } = {}) {
   const results = [];
   for (let index = 0; index < runs; index += 1) {
@@ -95,7 +110,10 @@ export async function runBacktestBatch({
       initialBalance,
       cycles,
       seed: seed + index,
-      marketFactory
+      marketFactory,
+      simulatorFactory,
+      dynamicMarketFactory,
+      executionEngineFactory
     }));
   }
 
