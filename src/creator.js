@@ -57,6 +57,15 @@ export class OpportunityCreator {
     const demand = marketContext.demand ?? 1;
     const competition = marketContext.competition ?? 1;
     const successRate = stats.attempts > 0 ? stats.successRate : 0.5;
+    const categoryStats = typeof learning.categories === "function"
+      ? learning.categories()
+      : [];
+    const strongestCategory = [...categoryStats]
+      .filter((item) => item.attempts > 0)
+      .sort((a, b) => b.averageNet - a.averageNet)[0]?.category;
+    const weakestCategory = [...categoryStats]
+      .filter((item) => item.attempts > 0)
+      .sort((a, b) => a.averageNet - b.averageNet)[0]?.category;
 
     let category = "RESEARCH";
     let name = "Pesquisa de demanda emergente";
@@ -65,7 +74,21 @@ export class OpportunityCreator {
     let risk = 0.15;
     let effort = 1;
 
-    if (demand > 1.1 && competition < 1) {
+    if (strongestCategory === "SERVICE" && demand > 0.95) {
+      category = "SERVICE";
+      name = "Serviço validado por histórico";
+      revenue = 10;
+      cost = 1.8;
+      risk = 0.12;
+      effort = 2;
+    } else if (weakestCategory === "PRODUCT" && competition > 1.1) {
+      category = "RESEARCH";
+      name = "Pesquisa para evitar categoria de baixo desempenho";
+      revenue = 8;
+      cost = 1;
+      risk = 0.1;
+      effort = 1;
+    } else if (demand > 1.1 && competition < 1) {
       category = "SERVICE";
       name = "Serviço sob demanda de alta procura";
       revenue = 11;
