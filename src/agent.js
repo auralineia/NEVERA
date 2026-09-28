@@ -3,6 +3,7 @@ import { validateExecution } from "./quality.js";
 import { CapitalPolicy } from "./capital-policy.js";
 import { chooseOpportunities } from "./strategy.js";
 import { ProductionQueue } from "./production-queue.js";
+import { calculateProductionPriority } from "./priority.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -19,7 +20,7 @@ export class NeveraAgent {
     this.dynamicMarket = dynamicMarket;
     this.executionEngine = executionEngine ?? new ExecutionEngine();
     this.capitalPolicy = new CapitalPolicy();
-    this.productionQueue = new ProductionQueue();
+    this.productionQueue = new ProductionQueue((item) => calculateProductionPriority(item, this.learning));
   }
 
   async cycle(strategyProfile = null, { maxActions = 3 } = {}) {
@@ -86,10 +87,36 @@ export class NeveraAgent {
       state.economy.balance,
       this.learning,
       maxActions
-    ).map((choice) => ({
-      choice,
-      candidate: candidates.find((item) => item.opportunity.name === choice.opportunity.name)
-    }));
+    ).map((choice) => {
+      const candidate = candidates.find(
+        (item) => item.opportunity.name === choice.opportunity.name
+      );
+      const executionOpportunity = strategyProfile
+        ? {
+            ...choice.opportunity,
+            estimatedCost: Number(
+              (choice.opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)
+            ),
+            estimatedRevenue: Number(
+              (choice.opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)
+            ),
+            risk: Math.min(
+              0.95,
+              Number((choice.opportunity.risk * strategyProfile.riskMultiplier).toFixed(4))
+            )
+          }
+        : choice.opportunity;
+
+      return {
+        choice,
+        candidate,
+        executionOpportunity,
+        priorityScore: calculateProductionPriority(
+          { choice, opportunity: executionOpportunity },
+          this.learning
+        )
+      };
+    });
   }
 
   async executePrepared(item, strategyProfile = null) {
