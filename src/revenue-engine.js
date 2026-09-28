@@ -96,7 +96,17 @@ export class RevenueEngine {
       score: Number(score) || 0,
       status: "DRAFT",
       createdAt: new Date().toISOString(),
-      paymentMethods: this.market(pricing.market).methods
+      paymentMethods: this.market(pricing.market).methods,
+      opportunity: {
+        name: title ?? pricing.label,
+        title: title ?? pricing.label,
+        category: selectedChannel,
+        sourceUrl,
+        url: sourceUrl,
+        company,
+        location,
+        signal: signal?.name ?? "PUBLIC_DEMAND"
+      }
     };
     this.offers.push(offer);
     this.stats.offersCreated += 1;
