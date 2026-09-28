@@ -1,4 +1,5 @@
 import { ExecutionEngine } from "./execution-engine.js";
+import { validateExecution } from "./quality.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -211,6 +212,44 @@ export class NeveraAgent {
     }
 
     const outcome = await this.simulator(executionOpportunity);
+    const quality = validateExecution({
+      opportunity: executionOpportunity,
+      execution,
+      outcome
+    });
+
+    this.nevera.log("QUALITY_GATE", quality);
+
+    if (!quality.passed) {
+      const result = {
+        status: "NO_ACTION",
+        reason: "QUALITY_GATE_FAILED",
+        quality
+      };
+      this.nevera.log("EXECUTION_REJECTED", result);
+      return {
+        decision,
+        createdOpportunity: created,
+        createdEvaluation,
+        candidates,
+        opportunity: choice.opportunity,
+        score: choice.score,
+        selectedEvaluation: selected.evaluation,
+        survival: executionCheck,
+        strategy: strategyProfile?.name ?? "UNSPECIFIED",
+        action: {
+          tool: "research_opportunity",
+          research,
+          executionPlan,
+          execution,
+          outcome: null
+        },
+        marketEvent,
+        result,
+        quality,
+        learning: this.learning.stats()
+      };
+    }
 
     if (outcome.cost > 0) {
       this.nevera.spend(outcome.cost, `executed: ${choice.opportunity.name}`);
