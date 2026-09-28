@@ -12,7 +12,7 @@ export class NeveraAgent {
     this.survival = survival;
   }
 
-  async cycle() {
+  async cycle(strategyProfile = null) {
     const state = this.nevera.snapshot();
     const decision = this.brain.think(state);
 
@@ -45,10 +45,7 @@ export class NeveraAgent {
       .map((opportunity) => ({
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
-        survival: this.survival.assess(
-          state.economy.balance,
-          opportunity
-        )
+        survival: this.survival.assess(state.economy.balance, opportunity)
       }))
       .filter((item) => item.evaluation.viable && item.survival.allowed);
 
@@ -59,18 +56,9 @@ export class NeveraAgent {
     );
 
     if (!choice) {
-      const result = {
-        status: "NO_ACTION",
-        reason: "PROTECT_CAPITAL"
-      };
+      const result = { status: "NO_ACTION", reason: "PROTECT_CAPITAL" };
       this.nevera.log("CAPITAL_DECISION", result);
-      return {
-        decision,
-        createdOpportunity: created,
-        createdEvaluation,
-        candidates,
-        result
-      };
+      return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
     }
 
     const selected = candidates.find(
@@ -80,6 +68,7 @@ export class NeveraAgent {
     this.nevera.log("CAPITAL_DECISION", {
       selected: choice.opportunity.name,
       score: choice.score,
+      strategy: strategyProfile?.name ?? "UNSPECIFIED",
       evaluation: selected.evaluation,
       survival: selected.survival
     });
@@ -88,7 +77,38 @@ export class NeveraAgent {
       idea: choice.opportunity.name
     });
 
-    const outcome = this.simulator(choice.opportunity);
+    const executionOpportunity = strategyProfile
+      ? {
+          ...choice.opportunity,
+          estimatedCost: Number(
+            (choice.opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)
+          ),
+          estimatedRevenue: Number(
+            (choice.opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)
+          ),
+          risk: Math.min(
+            0.95,
+            Number((choice.opportunity.risk * strategyProfile.riskMultiplier).toFixed(4))
+          )
+        }
+      : choice.opportunity;
+
+    const executionCheck = this.survival.assess(
+      state.economy.balance,
+      executionOpportunity
+    );
+
+    if (!executionCheck.allowed) {
+      const result = {
+        status: "NO_ACTION",
+        reason: "STRATEGY_EXCEEDS_SURVIVAL_LIMIT",
+        executionCheck
+      };
+      this.nevera.log("CAPITAL_DECISION", result);
+      return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
+    }
+
+    const outcome = this.simulator(executionOpportunity);
 
     if (outcome.cost > 0) {
       this.nevera.spend(outcome.cost, `simulated: ${choice.opportunity.name}`);
@@ -103,6 +123,7 @@ export class NeveraAgent {
 
     this.nevera.log("MARKET_RESULT", {
       opportunity: choice.opportunity,
+      strategy: strategyProfile?.name ?? "UNSPECIFIED",
       score: choice.score,
       outcome,
       learning: this.learning.stats()
@@ -116,12 +137,9 @@ export class NeveraAgent {
       opportunity: choice.opportunity,
       score: choice.score,
       selectedEvaluation: selected.evaluation,
-      survival: selected.survival,
-      action: {
-        tool: "research_opportunity",
-        research,
-        outcome
-      },
+      survival: executionCheck,
+      strategy: strategyProfile?.name ?? "UNSPECIFIED",
+      action: { tool: "research_opportunity", research, outcome },
       learning: this.learning.stats()
     };
   }
