@@ -82,6 +82,14 @@ export class ExecutionEngine {
     return results;
   }
 
+  releaseResources(resources = []) {
+    return this.resourceManager.release(resources);
+  }
+
+  releaseExecution(execution) {
+    return this.releaseResources(execution?.resourcesUsed ?? []);
+  }
+
   async execute(opportunity) {
     const plan = this.plan(opportunity);
 
