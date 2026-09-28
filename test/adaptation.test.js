@@ -11,6 +11,11 @@ test("baixa evidência aumenta exploração", () => {
       { confidence: 0.3 }
     ],
     experimentStats: { successRate: 0.3 },
+    experimentEvidence: [
+      { status: "COMPLETED", verdict: "NEGATIVE_SIGNAL" },
+      { status: "COMPLETED", verdict: "NEGATIVE_SIGNAL" },
+      { status: "COMPLETED", verdict: "NEGATIVE_SIGNAL" }
+    ],
     currentExplorationInterval: 3
   });
 
@@ -27,6 +32,11 @@ test("alto desempenho permite mais estabilidade", () => {
       { confidence: 0.75 }
     ],
     experimentStats: { successRate: 0.8 },
+    experimentEvidence: [
+      { status: "COMPLETED", verdict: "POSITIVE_SIGNAL" },
+      { status: "COMPLETED", verdict: "POSITIVE_SIGNAL" },
+      { status: "COMPLETED", verdict: "POSITIVE_SIGNAL" }
+    ],
     currentExplorationInterval: 3
   });
 
