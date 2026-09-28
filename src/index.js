@@ -35,6 +35,8 @@ import { EconomicMemory } from "./economic-memory.js";
 import { simulateEconomicOutcome } from "./economic-simulator.js";
 import { FailureMemory } from "./failure-memory.js";
 import { survivalMetrics } from "./survival-metrics.js";
+import { buildPortfolio } from "./portfolio.js";
+import { operationalState } from "./state.js";
 
 
 const persistence = new Persistence();
@@ -125,7 +127,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
   const opportunityBatch = opportunityEngine.discover(publicOpportunities, nevera.snapshot().economy.balance);
-  const publicTasks = planPublicTasks(opportunityBatch.map((item) => item.opportunity));
+  const portfolio = buildPortfolio(opportunityBatch.map((item) => item.opportunity), { maxItems: 3 });
+  const publicTasks = planPublicTasks(portfolio);
   const opportunityStats = opportunityMetrics(opportunityBatch);
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
@@ -247,6 +250,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     runtime: runtime.snapshot(),
     publicOpportunities,
     publicTasks,
+    portfolio,
     opportunityStats,
     opportunityQueue: opportunityEngine.snapshot(),
   economicMemory: economicMemory.export(),
@@ -284,7 +288,22 @@ const finalMetrics = calculateMetrics({
   production: agent.productionQueue.stats()
 });
 
+const finalOperationalState = operationalState({
+  nevera,
+  runtime,
+  recovery,
+  telemetry,
+  guardrails,
+  opportunityQueue: opportunityEngine.snapshot(),
+  survival: survivalMetrics({
+    initialBalance,
+    currentBalance: nevera.snapshot().economy.balance,
+    cycles: configuredCycles
+  })
+});
+
 console.log(JSON.stringify({
+  ...finalOperationalState,
   agent: nevera.snapshot(),
   metrics: finalMetrics,
   decisionStats: ledger.stats(),
