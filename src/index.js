@@ -40,6 +40,8 @@ import { operationalState } from "./state.js";
 import { ObjectiveManager } from "./objectives.js";
 import { DecisionMemory } from "./decision-memory.js";
 import { ActionBudget } from "./action-budget.js";
+import { CycleController } from "./cycle-controller.js";
+import { LongTermMemory } from "./long-term-memory.js";
 
 
 const persistence = new Persistence();
@@ -84,6 +86,8 @@ const objectiveManager = new ObjectiveManager();
 const brain = new Brain(objectiveManager);
 const decisionMemory = new DecisionMemory(saved?.decisionMemory ?? []);
 const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.env.NEVERA_MAX_CYCLE_COST ?? 1) });
+const cycleController = new CycleController();
+const longTermMemory = new LongTermMemory(saved?.longTermMemory ?? []);
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
@@ -148,6 +152,13 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
+  const cycleDecision = cycleController.decide({
+    balance: nevera.snapshot().economy.balance,
+    drawdown: initialBalance > 0 ? 1 - nevera.snapshot().economy.balance / initialBalance : 1,
+    failures: learning.stats().failures ?? 0,
+    confidence: learning.stats().successRate ?? 0
+  });
+  longTermMemory.remember("CYCLE_DECISION", { cycle, strategy: strategy.name, decision: cycleDecision });
   const objective = brain.updateObjective({
     balance: nevera.snapshot().economy.balance,
     initialBalance,
@@ -168,7 +179,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   });
   let result;
   try {
-    result = await agent.cycle(strategy, { maxActions: throughput.current });
+    result = await agent.cycle(strategy, { maxActions: Math.min(throughput.current, cycleDecision.actions) });
     recovery.success();
   } catch (error) {
     recovery.failure();
@@ -285,6 +296,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
     decisionMemory: decisionMemory.export(),
+    longTermMemory: longTermMemory.export(),
+    cycleController: cycleController.snapshot(),
     objective: objectiveManager.snapshot(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
