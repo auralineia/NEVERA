@@ -4,6 +4,7 @@ export function planPublicTasks(opportunities = []) {
     type: "ANALYZE_PUBLIC_SIGNAL",
     source: opportunity.source,
     signal: opportunity.signal,
+    url: opportunity.url,
     cost: 0
   }));
 }
