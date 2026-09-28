@@ -92,6 +92,8 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
 
   for (const outcome of outcomes) {
     portfolio.record(strategy, outcome);
+    const learningItem = learning.results.at(-1);
+    if (learningItem) learningItem.strategy = strategy.name;
   }
 
   if (outcomes.length) {
