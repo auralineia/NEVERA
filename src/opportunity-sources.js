@@ -7,7 +7,27 @@ export function defaultOpportunitySources() {
     },
     {
       name: "himalayas-remote-jobs",
-      url: "https://himalayas.app/jobs/api?limit=20&offset=0",
+      url: "https://himalayas.app/jobs/api?limit=20",
+      signal: "REMOTE_JOB_DEMAND"
+    },
+    {
+      name: "remoteok-remote-jobs",
+      url: "https://remoteok.com/api",
+      signal: "REMOTE_JOB_DEMAND"
+    },
+    {
+      name: "remotive-remote-jobs",
+      url: "https://remotive.com/api/remote-jobs",
+      signal: "REMOTE_JOB_DEMAND"
+    },
+    {
+      name: "arbeitnow-job-board",
+      url: "https://arbeitnow.com/api/job-board-api",
+      signal: "REMOTE_JOB_DEMAND"
+    },
+    {
+      name: "weworkremotely-rss",
+      url: "https://weworkremotely.com/remote-jobs.rss",
       signal: "REMOTE_JOB_DEMAND"
     }
   ];
