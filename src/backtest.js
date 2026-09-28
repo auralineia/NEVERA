@@ -41,7 +41,7 @@ export async function runBacktest({
   let explorationInterval = 3;
   let executed = 0;
 
-  for (let cycle = 1; cycle <= cycles && !nevera.isDead(); cycle += 1) {
+  for (let cycle = 1; cycle <= cycles && nevera.snapshot().status !== "DEAD"; cycle += 1) {
     portfolio.explorationInterval = explorationInterval;
     const strategy = portfolio.choose(cycle);
     const result = await agent.cycle(strategy);
