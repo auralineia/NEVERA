@@ -25,11 +25,30 @@ export function scoreOpportunity(opportunity, balance, learning = null) {
 }
 
 export function chooseOpportunity(opportunities, balance, learning = null) {
+  return rankOpportunities(opportunities, balance, learning)[0] ?? null;
+}
+
+export function rankOpportunities(opportunities, balance, learning = null) {
   return opportunities
     .map((opportunity) => ({
       opportunity,
       score: scoreOpportunity(opportunity, balance, learning)
     }))
     .filter((item) => Number.isFinite(item.score))
-    .sort((a, b) => b.score - a.score)[0] ?? null;
+    .sort((a, b) => b.score - a.score);
+}
+
+export function chooseOpportunities(opportunities, balance, learning = null, limit = 3) {
+  const ranked = rankOpportunities(opportunities, balance, learning);
+  const selected = [];
+  let remaining = balance;
+
+  for (const item of ranked) {
+    if (selected.length >= limit) break;
+    if (item.opportunity.estimatedCost > remaining) continue;
+    selected.push(item);
+    remaining = Number((remaining - item.opportunity.estimatedCost).toFixed(2));
+  }
+
+  return selected;
 }
