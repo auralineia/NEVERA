@@ -29,8 +29,47 @@ export class ExecutionEngine {
   }
 
   async executeBatch(opportunities = []) {
-    const results = await Promise.all(opportunities.map((opportunity) => this.execute(opportunity)));
-    return results;
+    const plans = opportunities.map((opportunity) => ({
+      opportunity,
+      plan: this.plan(opportunity)
+    }));
+
+    const valid = plans.filter((item) => item.plan.supported);
+    if (!valid.length) return opportunities.map(() => ({
+      status: "REJECTED",
+      reason: "NO_EXECUTABLE_OPPORTUNITIES"
+    }));
+
+    const reserved = this.resourceManager.reserveBatch(
+      valid.map((item) => item.plan.requiredResources)
+    );
+
+    if (!reserved) {
+      return opportunities.map((opportunity) => ({
+        status: "REJECTED",
+        reason: "RESOURCE_BATCH_UNAVAILABLE",
+        category: opportunity?.category ?? "RESEARCH"
+      }));
+    }
+
+    return Promise.all(valid.map(async ({ opportunity, plan }) => {
+      const steps = plan.steps;
+      const output = this.#buildOutput(opportunity, steps);
+      return {
+        status: "SUCCESS",
+        category: plan.category,
+        output,
+        deliverable: {
+          type: this.#deliverableType(plan.category),
+          title: opportunity.name,
+          content: output
+        },
+        actualCost: plan.estimatedCost,
+        duration: steps.length,
+        steps,
+        resourcesUsed: plan.requiredResources
+      };
+    }));
   }
 
   async execute(opportunity) {
