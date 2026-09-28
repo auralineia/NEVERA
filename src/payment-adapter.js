@@ -82,6 +82,10 @@ export class PaymentAdapter {
       ["line_items[0][quantity]", 1],
       ["metadata[neveraPaymentId]", paymentId],
       ["metadata[neveraOfferId]", offerId],
+      ["payment_intent_data[metadata][neveraPaymentId]", paymentId],
+      ["payment_intent_data[metadata][neveraOfferId]", offerId],
+      ["payment_intent_data[metadata][channel]", metadata.channel],
+      ["payment_intent_data[metadata][market]", metadata.market],
       ["metadata[channel]", metadata.channel],
       ["metadata[market]", metadata.market]
     ]);
