@@ -11,11 +11,13 @@ import { evaluateOpportunity } from "./evaluator.js";
 import { Persistence } from "./persistence.js";
 import { SurvivalManager } from "./survival.js";
 import { StrategyPortfolio } from "./strategies.js";
+import { calculateMetrics } from "./metrics.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
 
-const nevera = new Nevera({ initialBalance: saved?.balance ?? 10 });
+const initialBalance = saved?.initialBalance ?? 10;
+const nevera = new Nevera({ initialBalance: saved?.balance ?? initialBalance });
 const brain = new Brain();
 const tools = createSimulationTools();
 const market = defaultMarket();
@@ -51,25 +53,40 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     portfolio.record(strategy, result.action.outcome);
   }
 
+  const metrics = calculateMetrics({
+    initialBalance,
+    currentBalance: nevera.snapshot().economy.balance,
+    learning,
+    strategies: portfolio.stats()
+  });
+
   await persistence.save({
+    initialBalance,
     balance: nevera.snapshot().economy.balance,
     cycle,
     learning: learning.export(),
     strategies: portfolio.export(),
+    metrics,
     lastResult: result
   });
 
   console.log(JSON.stringify({
     cycle,
     strategy: strategy.name,
-    balance: nevera.snapshot().economy.balance,
+    metrics,
     result
   }, null, 2));
 }
 
+const finalMetrics = calculateMetrics({
+  initialBalance,
+  currentBalance: nevera.snapshot().economy.balance,
+  learning,
+  strategies: portfolio.stats()
+});
+
 console.log(JSON.stringify({
   agent: nevera.snapshot(),
-  learning: learning.stats(),
-  strategies: portfolio.stats(),
+  metrics: finalMetrics,
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
