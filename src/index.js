@@ -17,6 +17,7 @@ import { ExperimentManager } from "./experiments.js";
 import { HypothesisEngine } from "./hypotheses.js";
 import { AdaptationEngine } from "./adaptation.js";
 import { DynamicMarket } from "./dynamic-market.js";
+import { ThroughputController } from "./throughput.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -57,6 +58,7 @@ const agent = new NeveraAgent(
 );
 
 let explorationInterval = saved?.explorationInterval ?? 3;
+const throughput = new ThroughputController(saved?.throughput ?? undefined);
 const startCycle = (saved?.cycle ?? 0) + 1;
 
 for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
@@ -72,7 +74,12 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     }),
     strategy: strategy.name
   });
-  const result = await agent.cycle(strategy, { maxActions: 3 });
+  const result = await agent.cycle(strategy, { maxActions: throughput.current });
+  const throughputDecision = throughput.decide({
+    outcomes: result.production?.outcomes ?? [],
+    balance: nevera.snapshot().economy.balance,
+    initialBalance
+  });
 
   const outcomes = (result.actions ?? [])
     .map((item) => item.action?.outcome)
@@ -119,6 +126,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     decisions: ledger.export(),
     experiments: experiments.export(),
     explorationInterval,
+    throughput: throughput.snapshot(),
     marketSeed: 42,
     marketEvents: dynamicMarket.state(),
     metrics,
@@ -132,6 +140,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     decisionStats: ledger.stats(),
     experimentStats: experiments.stats(),
     adaptation,
+    throughput: throughputDecision,
     result
   }, null, 2));
 }
