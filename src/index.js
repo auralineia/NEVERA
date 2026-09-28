@@ -37,6 +37,9 @@ import { FailureMemory } from "./failure-memory.js";
 import { survivalMetrics } from "./survival-metrics.js";
 import { buildPortfolio } from "./portfolio.js";
 import { operationalState } from "./state.js";
+import { ObjectiveManager } from "./objectives.js";
+import { DecisionMemory } from "./decision-memory.js";
+import { ActionBudget } from "./action-budget.js";
 
 
 const persistence = new Persistence();
@@ -44,7 +47,7 @@ const saved = await persistence.load();
 
 const initialBalance = saved?.initialBalance ?? 10;
 const nevera = new Nevera({ initialBalance: saved?.balance ?? initialBalance });
-const brain = new Brain();
+const brain = new Brain(objectiveManager);
 const tools = createSimulationTools();
 const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
@@ -77,6 +80,9 @@ const discovery = new OpportunityDiscovery({
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
+const objectiveManager = new ObjectiveManager();
+const decisionMemory = new DecisionMemory(saved?.decisionMemory ?? []);
+const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.env.NEVERA_MAX_CYCLE_COST ?? 1) });
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
@@ -142,6 +148,12 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
+  const objective = brain.updateObjective({
+    balance: nevera.snapshot().economy.balance,
+    initialBalance,
+    successRate: learning.stats().successRate ?? 0,
+    failures: learning.stats().failures ?? 0
+  });
   agent.experimentEvidence = experiments.recent(20)
     .map((item) => experiments.evaluate(item.id))
     .filter(Boolean);
@@ -191,6 +203,15 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   if (outcomes.length) {
     experiments.complete(experiment.id, outcomes.at(-1));
   }
+
+  decisionMemory.record({
+    cycle,
+    objective,
+    strategy: strategy.name,
+    opportunity: result.chosenOpportunity,
+    score: result.score,
+    outcome: outcomes
+  });
 
   ledger.record({
     cycle,
@@ -263,6 +284,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   }),
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
+    decisionMemory: decisionMemory.export(),
+    objective: objectiveManager.snapshot(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
     lastResult: result
@@ -273,6 +296,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     strategy: strategy.name,
     metrics,
     decisionStats: ledger.stats(),
+    objective,
+    decisionMemory: decisionMemory.recent(10),
     experimentStats: experiments.stats(),
     adaptation,
     throughput: throughputDecision,
