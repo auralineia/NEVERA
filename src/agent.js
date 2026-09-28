@@ -81,7 +81,10 @@ export class NeveraAgent {
       .map((opportunity) => ({
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
-        survival: this.survival.assess(state.economy.balance, opportunity)
+        survival: this.survival.assess(state.economy.balance, opportunity),
+        demandAvailable: this.dynamicMarket
+          ? this.dynamicMarket.hasDemand(opportunity)
+          : true
       }))
       .filter((item) =>
         item.evaluation.viable &&
