@@ -1,5 +1,5 @@
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -7,6 +7,7 @@ export class NeveraAgent {
     this.market = market;
     this.simulator = simulator;
     this.learning = learning;
+    this.creator = creator;
   }
 
   async cycle() {
@@ -18,6 +19,10 @@ export class NeveraAgent {
     if (decision.type !== "PROPOSE") {
       return { decision, action: null, opportunity: null };
     }
+
+    const created = this.creator.createFromMemory(this.learning);
+    this.market.add(created);
+    this.nevera.log("OPPORTUNITY_CREATED", created);
 
     const choice = this.strategy(
       this.market.available(),
@@ -57,6 +62,7 @@ export class NeveraAgent {
 
     return {
       decision,
+      createdOpportunity: created,
       opportunity: choice.opportunity,
       score: choice.score,
       action: {
