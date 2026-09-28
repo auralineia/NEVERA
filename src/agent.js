@@ -1,5 +1,7 @@
+import { ExecutionEngine } from "./execution-engine.js";
+
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -11,6 +13,7 @@ export class NeveraAgent {
     this.evaluator = evaluator;
     this.survival = survival;
     this.dynamicMarket = dynamicMarket;
+    this.executionEngine = executionEngine ?? new ExecutionEngine();
   }
 
   async cycle(strategyProfile = null) {
@@ -151,24 +154,88 @@ export class NeveraAgent {
       return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
     }
 
+    const executionPlan = this.executionEngine.plan(executionOpportunity);
+    this.nevera.log("EXECUTION_PLAN", {
+      opportunity: choice.opportunity.name,
+      plan: executionPlan
+    });
+
+    if (!executionPlan.supported) {
+      const result = {
+        status: "NO_ACTION",
+        reason: "EXECUTION_CAPABILITY_UNAVAILABLE",
+        executionPlan
+      };
+      this.nevera.log("EXECUTION_REJECTED", result);
+      return {
+        decision,
+        createdOpportunity: created,
+        createdEvaluation,
+        candidates,
+        opportunity: choice.opportunity,
+        score: choice.score,
+        selectedEvaluation: selected.evaluation,
+        survival: executionCheck,
+        strategy: strategyProfile?.name ?? "UNSPECIFIED",
+        action: { tool: "research_opportunity", research, executionPlan, outcome: null },
+        marketEvent,
+        result,
+        learning: this.learning.stats()
+      };
+    }
+
+    const execution = await this.executionEngine.execute(executionOpportunity);
+
+    if (execution.status !== "SUCCESS") {
+      const result = {
+        status: "NO_ACTION",
+        reason: "EXECUTION_FAILED",
+        execution
+      };
+      this.nevera.log("EXECUTION_FAILED", result);
+      return {
+        decision,
+        createdOpportunity: created,
+        createdEvaluation,
+        candidates,
+        opportunity: choice.opportunity,
+        score: choice.score,
+        selectedEvaluation: selected.evaluation,
+        survival: executionCheck,
+        strategy: strategyProfile?.name ?? "UNSPECIFIED",
+        action: { tool: "research_opportunity", research, executionPlan, execution, outcome: null },
+        marketEvent,
+        result,
+        learning: this.learning.stats()
+      };
+    }
+
     const outcome = await this.simulator(executionOpportunity);
 
     if (outcome.cost > 0) {
-      this.nevera.spend(outcome.cost, `simulated: ${choice.opportunity.name}`);
+      this.nevera.spend(outcome.cost, `executed: ${choice.opportunity.name}`);
     }
 
-    if (outcome.revenue > 0) {
-      this.nevera.earn(outcome.revenue, `simulated: ${choice.opportunity.name}`);
+    if (outcome.revenue > 0 && outcome.status === "SUCCESS") {
+      this.nevera.earn(outcome.revenue, `delivered: ${choice.opportunity.name}`);
     }
 
     choice.opportunity.status = "CLOSED";
     this.learning.record(choice.opportunity, outcome);
-    this.brain.remember(choice.opportunity.name, outcome);
+    this.brain.remember(choice.opportunity.name, {
+      ...outcome,
+      execution: {
+        status: execution.status,
+        duration: execution.duration,
+        deliverableType: execution.deliverable?.type ?? null
+      }
+    });
 
     this.nevera.log("MARKET_RESULT", {
       opportunity: choice.opportunity,
       strategy: strategyProfile?.name ?? "UNSPECIFIED",
       score: choice.score,
+      execution,
       outcome,
       learning: this.learning.stats()
     });
@@ -183,7 +250,7 @@ export class NeveraAgent {
       selectedEvaluation: selected.evaluation,
       survival: executionCheck,
       strategy: strategyProfile?.name ?? "UNSPECIFIED",
-      action: { tool: "research_opportunity", research, outcome },
+      action: { tool: "research_opportunity", research, executionPlan, execution, outcome },
       marketEvent,
       learning: this.learning.stats()
     };
