@@ -51,6 +51,25 @@ export class NeveraAgent {
       this.nevera.log("MARKET_EVENT", marketEvent);
     }
 
+    const marketContext = marketOpportunities[0] ?? {};
+    const discovered = this.creator.discover(this.learning, {
+      demand: marketContext.demand,
+      competition: marketContext.competition
+    });
+    const discoveredEvaluation = this.evaluator(
+      discovered,
+      state.economy.balance
+    );
+
+    this.nevera.log("OPPORTUNITY_DISCOVERED", {
+      opportunity: discovered,
+      evaluation: discoveredEvaluation
+    });
+
+    if (discoveredEvaluation.viable) {
+      this.market.add(discovered);
+    }
+
     const candidates = marketOpportunities
       .map((opportunity) => ({
         opportunity,
