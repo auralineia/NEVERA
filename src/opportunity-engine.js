@@ -1,8 +1,9 @@
 export class OpportunityEngine {
-  constructor({ evaluator, maxQueue = 10, economicMemory = null } = {}) {
+  constructor({ evaluator, maxQueue = 10, economicMemory = null, failureMemory = null } = {}) {
     this.evaluator = evaluator;
     this.maxQueue = maxQueue;
     this.economicMemory = economicMemory;
+    this.failureMemory = failureMemory;
     this.queue = [];
   }
 
@@ -27,7 +28,8 @@ export class OpportunityEngine {
     const base = item.evaluation.viabilityScore ?? 0;
     const stats = this.economicMemory?.stats(item.opportunity.category);
     if (!stats?.attempts) return base;
-    return base + Math.max(-0.25, Math.min(0.25, stats.averageNet / 20));
+    const failurePenalty = this.failureMemory?.penalty(item.opportunity.category) ?? 0;
+    return base + Math.max(-0.25, Math.min(0.25, stats.averageNet / 20)) - failurePenalty;
   }
 
   next() {
