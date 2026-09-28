@@ -114,6 +114,10 @@ const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity
 
 const revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
 const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
+const liveExecutionMode = paymentAdapter.liveAuthorized && liveCheckoutEnabled;
+const outcomeProvider = liveExecutionMode
+  ? async () => ({ status: "PENDING_PAYMENT", revenue: 0, cost: 0, net: 0 })
+  : simulateOutcome;
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
@@ -252,7 +256,7 @@ const agent = new NeveraAgent(
   tools,
   chooseOpportunity,
   market,
-  simulateOutcome,
+  outcomeProvider,
   learning,
   creator,
   evaluateOpportunity,
