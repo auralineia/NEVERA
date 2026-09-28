@@ -4,6 +4,7 @@ import { CapitalPolicy } from "./capital-policy.js";
 import { chooseOpportunities } from "./strategy.js";
 import { chooseDecisions } from "./decision-engine.js";
 import { ProductionQueue } from "./production-queue.js";
+import { Guardrails } from "./guardrails.js";
 import { calculateProductionPriority, defaultPriorityWeights, learnPriorityWeights } from "./priority.js";
 
 function transformOpportunity(opportunity, strategyProfile = null) {
@@ -31,7 +32,8 @@ export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null, {
     priorityWeights = null,
     queueState = null,
-    experimentEvidence = []
+    experimentEvidence = [],
+    guardrails = null
   } = {}) {
     this.nevera = nevera;
     this.brain = brain;
@@ -48,6 +50,7 @@ export class NeveraAgent {
     this.capitalPolicy = new CapitalPolicy();
     this.priorityWeights = priorityWeights ?? defaultPriorityWeights();
     this.experimentEvidence = Array.isArray(experimentEvidence) ? experimentEvidence : [];
+    this.guardrails = guardrails ?? null;
     this.productionQueue = new ProductionQueue(
       (item) => calculateProductionPriority(item, this.learning, this.priorityWeights),
       queueState ?? {}
@@ -116,7 +119,11 @@ export class NeveraAgent {
         survival: this.survival.assess(state.economy.balance, opportunity),
         demandAvailable: this.dynamicMarket ? this.dynamicMarket.hasDemand(opportunity) : true
       }))
-      .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable);
+      .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable)
+      .filter((item) => !this.guardrails || this.guardrails.allow(
+        state.economy.balance,
+        item.opportunity
+      ).allowed);
 
     const regime = candidates.length
       ? this.learning?.regime?.(candidates[0].opportunity.category)
