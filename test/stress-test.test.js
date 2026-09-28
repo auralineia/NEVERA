@@ -10,8 +10,8 @@ test("stress test executa cenários adversariais", async () => {
     seed: 77
   });
 
-  assert.equal(result.scenarios.length, 5);
-  assert.equal(result.totalCycles, 5 * 3 * 10);
+  assert.equal(result.scenarios.length, 8);
+  assert.equal(result.totalCycles, 8 * 3 * 10);
   assert.ok(result.overallSurvivalRate >= 0);
   assert.ok(result.overallSurvivalRate <= 1);
 
