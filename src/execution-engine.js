@@ -1,21 +1,26 @@
+import { ResourceManager } from "./resource-manager.js";
+
 export class ExecutionEngine {
-  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "EMERGING"], maxSteps = 8 } = {}) {
+  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "EMERGING"], maxSteps = 8, resources = null } = {}) {
     this.capabilities = new Set(capabilities);
     this.maxSteps = maxSteps;
+    this.resourceManager = resources ?? new ResourceManager();
   }
 
   plan(opportunity) {
     const category = opportunity?.category ?? "RESEARCH";
     const supported = this.capabilities.has(category);
     const steps = this.#stepsFor(category);
+    const requiredResources = this.#resourcesFor(category);
+    const resourcesAvailable = this.resourceManager.canReserve(requiredResources);
 
     return {
-      supported,
+      supported: supported && resourcesAvailable,
       category,
-      requiredResources: this.#resourcesFor(category),
+      requiredResources,
       steps: steps.slice(0, this.maxSteps),
       estimatedCost: Number((opportunity?.estimatedCost ?? 0).toFixed(2)),
-      reason: supported ? "CAPABILITY_AVAILABLE" : "CAPABILITY_UNAVAILABLE"
+      reason: !supported ? "CAPABILITY_UNAVAILABLE" : !resourcesAvailable ? "RESOURCE_UNAVAILABLE" : "CAPABILITY_AVAILABLE"
     };
   }
 
@@ -37,6 +42,7 @@ export class ExecutionEngine {
 
     const steps = plan.steps;
     const output = this.#buildOutput(opportunity, steps);
+    this.resourceManager.reserve(plan.requiredResources);
 
     return {
       status: "SUCCESS",
