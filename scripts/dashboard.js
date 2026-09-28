@@ -132,7 +132,7 @@ function proxyPaymentRequest(req,res){
 }
 
 createServer(async (req,res)=>{
- if(req.url==="/payment-status" || req.url==="/health" || req.url.startsWith("/pay/") || req.url==="/webhooks/payments"){
+ if(req.url==="/payment-status" || req.url==="/health" || req.url==="/latest-checkout" || req.url.startsWith("/pay/") || req.url==="/webhooks/payments"){
   proxyPaymentRequest(req,res);
   return;
  }
