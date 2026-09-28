@@ -1,7 +1,7 @@
 import { ResourceManager } from "./resource-manager.js";
 
 export class ExecutionEngine {
-  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "ARBITRAGE", "EMERGING"], maxSteps = 8, resources = null } = {}) {
+  constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "ARBITRAGE", "EMERGING", "DIGITAL_SERVICES", "BUSINESS_AUTOMATION", "CONTENT_AND_MEDIA", "DATA_AND_RESEARCH", "APPS_AND_TOOLS"], maxSteps = 8, resources = null } = {}) {
     this.capabilities = new Set(capabilities);
     this.maxSteps = maxSteps;
     this.resourceManager = resources instanceof ResourceManager ? resources : new ResourceManager(resources ?? undefined);
