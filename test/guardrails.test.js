@@ -19,3 +19,15 @@ test("drawdown limit stops operations", () => {
   guard.observe(10);
   assert.equal(guard.allow(4, { estimatedCost: 1 }).reason, "DRAWDOWN_LIMIT");
 });
+
+
+test("cooldown bloqueia o ciclo seguinte a uma perda", () => {
+  const guard = new Guardrails({ cooldownCycles: 2, maxOperationCost: 10 });
+  assert.equal(guard.allow(10, { estimatedCost: 1 }).allowed, true);
+  guard.record(-1);
+  assert.equal(guard.allow(10, { estimatedCost: 1 }).reason, "COOLDOWN");
+  guard.tick();
+  assert.equal(guard.allow(10, { estimatedCost: 1 }).reason, "COOLDOWN");
+  guard.tick();
+  assert.equal(guard.allow(10, { estimatedCost: 1 }).allowed, true);
+});
