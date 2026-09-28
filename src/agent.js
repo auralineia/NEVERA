@@ -46,6 +46,11 @@ export class NeveraAgent {
       ? this.dynamicMarket.evolve(this.market.available())
       : this.market.available();
 
+    const marketEvent = this.dynamicMarket?.lastEvent ?? null;
+    if (marketEvent) {
+      this.nevera.log("MARKET_EVENT", marketEvent);
+    }
+
     const candidates = marketOpportunities
       .map((opportunity) => ({
         opportunity,
