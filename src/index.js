@@ -12,6 +12,7 @@ import { Persistence } from "./persistence.js";
 import { SurvivalManager } from "./survival.js";
 import { StrategyPortfolio } from "./strategies.js";
 import { calculateMetrics } from "./metrics.js";
+import { DecisionLedger } from "./decision-ledger.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -25,6 +26,7 @@ const learning = new Learning(saved?.learning ?? []);
 const creator = new OpportunityCreator();
 const survival = new SurvivalManager();
 const portfolio = new StrategyPortfolio();
+const ledger = new DecisionLedger(saved?.decisions ?? []);
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -53,6 +55,16 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     portfolio.record(strategy, result.action.outcome);
   }
 
+  ledger.record({
+    cycle,
+    decision: result.decision,
+    strategy: strategy.name,
+    opportunity: result.chosenOpportunity,
+    score: result.score,
+    survival: result.survival,
+    outcome: result.action?.outcome ?? null
+  });
+
   const metrics = calculateMetrics({
     initialBalance,
     currentBalance: nevera.snapshot().economy.balance,
@@ -66,6 +78,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     cycle,
     learning: learning.export(),
     strategies: portfolio.export(),
+    decisions: ledger.export(),
     metrics,
     lastResult: result
   });
@@ -74,6 +87,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     cycle,
     strategy: strategy.name,
     metrics,
+    decisionStats: ledger.stats(),
     result
   }, null, 2));
 }
@@ -88,5 +102,7 @@ const finalMetrics = calculateMetrics({
 console.log(JSON.stringify({
   agent: nevera.snapshot(),
   metrics: finalMetrics,
+  decisionStats: ledger.stats(),
+  recentDecisions: ledger.recent(5),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
