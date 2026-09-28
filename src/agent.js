@@ -81,7 +81,7 @@ export class NeveraAgent {
       }
     }
 
-    const candidates = this.market.available()
+    const candidates = marketOpportunities
       .map((opportunity) => ({
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
@@ -259,6 +259,31 @@ export class NeveraAgent {
       this.nevera.earn(outcome.revenue, `delivered: ${choice.opportunity.name}`);
     }
 
+    if (this.dynamicMarket && !this.dynamicMarket.consume(choice.opportunity)) {
+      const result = {
+        status: "NO_ACTION",
+        reason: "MARKET_DEMAND_EXHAUSTED"
+      };
+      this.nevera.log("MARKET_REJECTED", result);
+      return {
+        decision,
+        createdOpportunity: created,
+        createdEvaluation,
+        candidates,
+        opportunity: choice.opportunity,
+        score: choice.score,
+        selectedEvaluation: selected.evaluation,
+        survival: executionCheck,
+        strategy: strategyProfile?.name ?? "UNSPECIFIED",
+        action: { tool: "research_opportunity", research, executionPlan, execution, outcome: null },
+        marketEvent,
+        result,
+        quality,
+        learning: this.learning.stats()
+      };
+    }
+
+    choice.opportunity.estimatedRevenue = executionOpportunity.estimatedRevenue;
     choice.opportunity.status = "CLOSED";
     this.learning.record(choice.opportunity, outcome);
     this.brain.remember(choice.opportunity.name, {
