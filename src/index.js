@@ -158,7 +158,9 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     if (decisionFilter.repeatedFailure(item.opportunity, failureMemory)) decisionFilter.reject(item.opportunity, "REPEATED_CATEGORY_FAILURE");
   }
   const portfolioSelection = buildPortfolio(opportunityBatch.map((item) => item.opportunity), { maxItems: 3 });
-  const publicTasks = planPublicTasks(portfolioSelection);
+  const publicTasks = guardrails.snapshot().cooldownRemaining > 0 || guardrails.snapshot().killSwitch
+    ? []
+    : planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
