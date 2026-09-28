@@ -105,7 +105,7 @@ const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory });
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
