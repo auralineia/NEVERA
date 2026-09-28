@@ -50,7 +50,7 @@ import { evaluateAction } from "./post-action.js";
 import { testStrategy } from "./strategy-evolution.js";
 
 
-const persistence = new Persistence();
+const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
 const saved = await persistence.load();
 
 const initialBalance = saved?.initialBalance ?? 10;
