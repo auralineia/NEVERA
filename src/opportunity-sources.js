@@ -1,6 +1,15 @@
 export function defaultOpportunitySources() {
   return [
-    { name: "example-public", url: "https://example.com", signal: "PUBLIC_DATA" }
+    {
+      name: "jobicy-remote-jobs",
+      url: "https://jobicy.com/api/v2/remote-jobs?count=50",
+      signal: "REMOTE_JOB_DEMAND"
+    },
+    {
+      name: "himalayas-remote-jobs",
+      url: "https://himalayas.app/jobs/api?limit=20&offset=0",
+      signal: "REMOTE_JOB_DEMAND"
+    }
   ];
 }
 
