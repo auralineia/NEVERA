@@ -21,7 +21,8 @@ export class NeveraAgent {
 
     const choice = this.strategy(
       this.market.available(),
-      state.economy.balance
+      state.economy.balance,
+      this.learning
     );
 
     if (!choice) {
