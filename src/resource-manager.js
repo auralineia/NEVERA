@@ -33,6 +33,18 @@ export class ResourceManager {
     return this.reserve(flattened);
   }
 
+  release(resources = []) {
+    for (const resource of resources) {
+      const max = this.capacity[resource] ?? Number.POSITIVE_INFINITY;
+      this.resources[resource] = Math.min(max, (this.resources[resource] ?? 0) + 1);
+    }
+    return this.snapshot();
+  }
+
+  releaseBatch(resourceGroups = []) {
+    return this.release(resourceGroups.flatMap((group) => group ?? []));
+  }
+
   replenish(resource, amount = 1) {
     if (amount < 0) throw new Error("amount must be non-negative");
     const max = this.capacity[resource] ?? Number.POSITIVE_INFINITY;
