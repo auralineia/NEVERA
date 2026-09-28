@@ -40,7 +40,13 @@ test("backtest hostil protege capital quando oportunidades são caras", async ()
     initialBalance: 10,
     cycles: 20,
     seed: 99,
-    marketFactory: hostileMarket
+    marketFactory: hostileMarket,
+    dynamicMarketFactory: () => ({
+      evolve: (opportunities) => opportunities,
+      hasDemand: () => true,
+      consume: () => true,
+      release: () => true
+    })
   });
 
   assert.equal(result.finalBalance, 10);
@@ -98,7 +104,7 @@ test("backtest aceita simulador adversarial injetado", async () => {
     cycles: 10,
     seed: 55,
     marketFactory,
-    simulatorFactory: () => () => ({
+    simulatorFactory: () => (opportunity) => ({
       status: "FAILURE",
       revenue: 0,
       cost: opportunity.estimatedCost,
