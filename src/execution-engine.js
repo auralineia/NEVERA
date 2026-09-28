@@ -35,10 +35,13 @@ export class ExecutionEngine {
     }));
 
     const valid = plans.filter((item) => item.plan.supported);
-    if (!valid.length) return opportunities.map(() => ({
+    const results = opportunities.map((opportunity) => ({
       status: "REJECTED",
-      reason: "NO_EXECUTABLE_OPPORTUNITIES"
+      reason: "NO_EXECUTABLE_OPPORTUNITIES",
+      category: opportunity?.category ?? "RESEARCH"
     }));
+
+    if (!valid.length) return results;
 
     const reserved = this.resourceManager.reserveBatch(
       valid.map((item) => item.plan.requiredResources)
@@ -52,7 +55,7 @@ export class ExecutionEngine {
       }));
     }
 
-    return Promise.all(valid.map(async ({ opportunity, plan }) => {
+    const executed = await Promise.all(valid.map(async ({ opportunity, plan }) => {
       const steps = plan.steps;
       const output = this.#buildOutput(opportunity, steps);
       return {
@@ -70,6 +73,13 @@ export class ExecutionEngine {
         resourcesUsed: plan.requiredResources
       };
     }));
+
+    for (let index = 0; index < valid.length; index += 1) {
+      const originalIndex = opportunities.indexOf(valid[index].opportunity);
+      results[originalIndex] = executed[index];
+    }
+
+    return results;
   }
 
   async execute(opportunity) {
