@@ -3,6 +3,7 @@ export class ResourceManager {
     simulated_research_engine: 3,
     simulated_automation_engine: 3,
     simulated_product_builder: 2,
+    simulated_arbitrage_engine: 2,
     simulated_general_executor: 2
   }) {
     this.capacity = { ...initialResources };
