@@ -1,4 +1,5 @@
-import { readFile, writeFile, rename, copyFile } from "node:fs/promises";
+import { readFile, writeFile, rename, copyFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export class Persistence {
   constructor(filePath = "./nevera-state.json") {
@@ -15,6 +16,7 @@ export class Persistence {
 
   async save(state) {
     if (!this.#validate(state)) throw new Error("INVALID_STATE_CHECKPOINT");
+    await mkdir(dirname(this.filePath), { recursive: true });
     const payload = JSON.stringify({
       ...state,
       checkpointVersion: 2,
