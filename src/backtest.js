@@ -116,7 +116,7 @@ export async function runBacktestBatch({
   dynamicMarketFactory = null,
   executionEngineFactory = null,
   concurrency = 4
-} = {}) { = {}) {
+} = {}) {
   const results = [];
   const width = Math.max(1, Math.min(runs, Math.floor(Number(concurrency) || 1)));
   for (let start = 0; start < runs; start += width) {
