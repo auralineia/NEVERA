@@ -72,11 +72,18 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     }),
     strategy: strategy.name
   });
-  const result = await agent.cycle(strategy);
+  const result = await agent.cycle(strategy, { maxActions: 3 });
 
-  if (result.action?.outcome) {
-    portfolio.record(strategy, result.action.outcome);
-    experiments.complete(experiment.id, result.action.outcome);
+  const outcomes = (result.actions ?? [])
+    .map((item) => item.action?.outcome)
+    .filter(Boolean);
+
+  for (const outcome of outcomes) {
+    portfolio.record(strategy, outcome);
+  }
+
+  if (outcomes.length) {
+    experiments.complete(experiment.id, outcomes.at(-1));
   }
 
   ledger.record({
@@ -86,7 +93,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     opportunity: result.chosenOpportunity,
     score: result.score,
     survival: result.survival,
-    outcome: result.action?.outcome ?? null
+    outcome: outcomes
   });
 
   const metrics = calculateMetrics({
