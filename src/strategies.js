@@ -21,8 +21,9 @@ export class StrategyPortfolio {
     if (this.results.length === 0) return this.strategies[1];
 
     const stats = this.stats();
+    const observed = stats.filter((item) => item.attempts > 0);
     const underTested = stats
-      .filter((item) => item.attempts < 3)
+      .filter((item) => item.attempts > 0 && item.attempts < 3)
       .sort((a, b) => a.attempts - b.attempts)[0];
 
     if (underTested) {
