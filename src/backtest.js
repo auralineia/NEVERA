@@ -54,12 +54,14 @@ export async function runBacktest({
   let explorationInterval = 3;
   let cyclesWithOutcome = 0;
   let cyclesExecuted = 0;
+  const balanceHistory = [initialBalance];
 
   for (let cycle = 1; cycle <= cycles && nevera.snapshot().status !== "DEAD"; cycle += 1) {
     cyclesExecuted += 1;
     portfolio.explorationInterval = explorationInterval;
     const strategy = portfolio.choose(cycle);
     const result = await agent.cycle(strategy);
+    balanceHistory.push(nevera.snapshot().economy.balance);
 
     if (result.action?.outcome) {
       cyclesWithOutcome += 1;
@@ -76,6 +78,11 @@ export async function runBacktest({
 
   const finalBalance = nevera.snapshot().economy.balance;
   const stats = learning.stats();
+  const peak = Math.max(...balanceHistory);
+  const maxDrawdown = peak > 0 ? Number((Math.max(...balanceHistory.map((value) => (peak - value) / peak))).toFixed(4)) : 0;
+  const nets = learning.results.map((item) => Number(item.net ?? 0));
+  const meanNet = nets.length ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+  const variance = nets.length ? nets.reduce((sum, value) => sum + (value - meanNet) ** 2, 0) / nets.length : 0;
 
   return {
     initialBalance,
@@ -90,7 +97,10 @@ export async function runBacktest({
     alive: nevera.snapshot().status !== "DEAD",
     status: nevera.snapshot().status,
     explorationInterval,
-    categories: learning.categories()
+    categories: learning.categories(),
+    failureRate: stats.attempts ? Number((stats.failures / stats.attempts).toFixed(4)) : 0,
+    maxDrawdown,
+    volatility: Number(Math.sqrt(variance).toFixed(4))
   };
 }
 
@@ -118,6 +128,9 @@ export async function runBacktestBatch({
   }
 
   const finalBalances = results.map((item) => item.finalBalance);
+  const returns = results.map((item) => item.netWorthChange);
+  const meanReturn = returns.length ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+  const returnVariance = returns.length ? returns.reduce((sum, value) => sum + (value - meanReturn) ** 2, 0) / returns.length : 0;
   const survivors = results.filter((item) => item.alive).length;
   const averageFinalBalance = finalBalances.length
     ? Number((finalBalances.reduce((a, b) => a + b, 0) / finalBalances.length).toFixed(2))
@@ -133,6 +146,10 @@ export async function runBacktestBatch({
     averageFinalBalance,
     bestFinalBalance: Math.max(...finalBalances, initialBalance),
     worstFinalBalance: Math.min(...finalBalances, initialBalance),
+    averageNetReturn: Number(meanReturn.toFixed(2)),
+    returnVolatility: Number(Math.sqrt(returnVariance).toFixed(4)),
+    averageMaxDrawdown: Number((results.reduce((sum, item) => sum + item.maxDrawdown, 0) / Math.max(1, results.length)).toFixed(4)),
+    averageFailureRate: Number((results.reduce((sum, item) => sum + item.failureRate, 0) / Math.max(1, results.length)).toFixed(4)),
     results
   };
 }
