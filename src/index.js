@@ -110,7 +110,9 @@ const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });
+
+const revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
 const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
