@@ -67,7 +67,7 @@ export async function runStressTest({
     },
     {
       name: "HIGH_FAILURE",
-      marketFactory: hostileMarket(3, 2, 0.95, 2)
+      marketFactory: hostileMarket(5, 2, 0.7, 1)
     }
   ];
 
