@@ -56,6 +56,7 @@ const discovery = new OpportunityDiscovery({
   sources: [{ name: "public-sandbox-source", url: process.env.NEVERA_SANDBOX_URL ?? "https://example.com" }]
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
+guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
 
 const dynamicMarket = new DynamicMarket(
@@ -82,7 +83,8 @@ const agent = new NeveraAgent(
   {
     priorityWeights: saved?.priorityWeights ?? null,
     queueState: saved?.productionQueue ?? null,
-    experimentEvidence: saved?.experimentEvidence ?? []
+    experimentEvidence: saved?.experimentEvidence ?? [],
+    guardrails
   }
 );
 
