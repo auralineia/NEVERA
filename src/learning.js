@@ -116,6 +116,62 @@ export class Learning {
       .filter((item) => item.attempts >= minAttempts);
   }
 
+
+  regime(category = null, { recentWindow = 5, historicalWindow = 20 } = {}) {
+    const relevant = category
+      ? this.results.filter((item) => item.category === category)
+      : this.results;
+
+    const recent = relevant.slice(-recentWindow);
+    const historical = relevant.slice(
+      Math.max(0, relevant.length - historicalWindow),
+      Math.max(0, relevant.length - recentWindow)
+    );
+
+    const summarize = (items) => {
+      const attempts = items.length;
+      const successes = items.filter((item) => item.status === "SUCCESS").length;
+      const net = items.reduce((sum, item) => sum + (item.net ?? 0), 0);
+      return {
+        attempts,
+        successRate: attempts ? successes / attempts : 0,
+        averageNet: attempts ? net / attempts : 0
+      };
+    };
+
+    const recentStats = summarize(recent);
+    const historicalStats = summarize(historical);
+
+    if (recentStats.attempts < 3 || historicalStats.attempts < 3) {
+      return {
+        category,
+        regime: "INSUFFICIENT_DATA",
+        shift: 0,
+        recent: recentStats,
+        historical: historicalStats
+      };
+    }
+
+    const shift = Number((
+      Math.abs(recentStats.successRate - historicalStats.successRate) +
+      Math.min(1, Math.abs(recentStats.averageNet - historicalStats.averageNet) / 10)
+    ).toFixed(4));
+
+    return {
+      category,
+      regime: shift >= 0.6 ? "SHIFTED" : shift >= 0.3 ? "TRANSITION" : "STABLE",
+      shift,
+      recent: recentStats,
+      historical: historicalStats
+    };
+  }
+
+  regimes(options = {}) {
+    return this.categories().map((item) =>
+      this.regime(item.category, options)
+    );
+  }
+
   categories() {
     return [...new Set(this.results.map((item) => item.category))].map((category) =>
       this.categoryStats(category)
