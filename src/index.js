@@ -117,7 +117,41 @@ const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
+const liveCheckoutEnabled = String(process.env.NEVERA_LIVE_CHECKOUTS ?? "false").toLowerCase() === "true";
+const liveCheckoutMaxPerCycle = Math.max(1, Number(process.env.NEVERA_LIVE_MAX_CHECKOUTS_PER_CYCLE ?? 1));
+
 const paymentWebhookServer = createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({
+      ok: true,
+      service: "NEVERA",
+      cycle: nevera?.snapshot?.().cycle ?? null,
+      payment: paymentAdapter.status()
+    }));
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/payment-status") {
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify(paymentAdapter.status()));
+    return;
+  }
+
+  if (req.method === "GET" && req.url.startsWith("/pay/")) {
+    const paymentId = decodeURIComponent(req.url.slice("/pay/".length).split("?")[0]);
+    const payment = revenueEngine.paymentIntents.find((item) => item.id === paymentId);
+    const checkoutUrl = payment?.checkout?.checkoutUrl;
+    if (!checkoutUrl) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "CHECKOUT_NOT_FOUND", paymentId }));
+      return;
+    }
+    res.writeHead(302, { location: checkoutUrl, "cache-control": "no-store" });
+    res.end();
+    return;
+  }
+
   if (req.method !== "POST" || req.url !== "/webhooks/payments") {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "NOT_FOUND" }));
@@ -234,9 +268,19 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     ? []
     : planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
-  const revenueOffers = revenueEngine.cycle({ opportunities: opportunityBatch.map((item) => ({ ...item.opportunity, score: item.score ?? item.opportunity?.score ?? 0.5 })), maxOffers: 5 });
+  const requestedOfferLimit = paymentAdapter.liveAuthorized && liveCheckoutEnabled
+    ? liveCheckoutMaxPerCycle
+    : 5;
+  const revenueOffers = revenueEngine.cycle({
+    opportunities: opportunityBatch.map((item) => ({ ...item.opportunity, score: item.score ?? item.opportunity?.score ?? 0.5 })),
+    maxOffers: requestedOfferLimit
+  });
   for (const offer of revenueOffers) {
     try {
+      if (paymentAdapter.liveAuthorized && !liveCheckoutEnabled) {
+        telemetry.record("LIVE_CHECKOUT_BLOCKED", { cycle, offer: offer.id, reason: "EXPLICIT_LIVE_CHECKOUTS_REQUIRED" });
+        continue;
+      }
       const payment = revenueEngine.createPaymentIntent(offer);
       const checkout = await paymentAdapter.createCheckout({
         paymentId: payment.id,
