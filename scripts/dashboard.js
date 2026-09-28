@@ -79,6 +79,7 @@ function publicState(state) {
         status: payment.status,
         checkoutStatus: payment.checkout?.status ?? null,
         checkoutUrl: payment.checkout?.checkoutUrl ?? null,
+        checkoutError: payment.checkout?.error ?? null,
         createdAt: payment.createdAt,
         confirmedAt: payment.confirmedAt ?? null
       }))
@@ -124,7 +125,7 @@ async function refresh(){
   document.getElementById('opportunities').innerHTML=ops.length?ops.map(o=>'<div class="row"><strong>'+esc(o.name)+'</strong><div class="muted">'+esc(o.source)+' • '+esc(o.signal)+'</div><span class="pill">score: '+esc(o.score??"—")+'</span><span class="pill">'+esc(o.category??"RESEARCH")+'</span>'+(o.url?'<div><a href="'+esc(o.url)+'" target="_blank" rel="noopener">Abrir fonte</a></div>':'')+'</div>').join(''):'<div class="empty">Nenhuma oportunidade registrada ainda.</div>';
 
   const payments=(rev.payments||[]).slice().reverse();
-  document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
+  document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+(p.checkoutError?'<div class="muted">Erro: '+esc(p.checkoutError)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
 
   document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:rc,guardrails:g,revenue:rev,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
