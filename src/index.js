@@ -66,8 +66,11 @@ const agent = new NeveraAgent(
 let explorationInterval = saved?.explorationInterval ?? 3;
 const throughput = new ThroughputController(saved?.throughput ? { ...saved.throughput, initial: saved.throughput.current } : undefined);
 const startCycle = (saved?.cycle ?? 0) + 1;
+const configuredCycles = Number(process.env.NEVERA_CYCLES ?? 5);
+const cycleLimit = configuredCycles === 0 ? Infinity : Math.max(1, configuredCycles);
+const cycleDelayMs = Math.max(0, Number(process.env.NEVERA_CYCLE_DELAY_MS ?? 0));
 
-for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset += 1) {
+for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD"; offset += 1) {
   const cycle = startCycle + offset;
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
@@ -133,6 +136,8 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     currentExplorationInterval: explorationInterval
   });
   explorationInterval = adaptation.explorationInterval;
+
+  if (cycleDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, cycleDelayMs));
 
   await persistence.save({
     initialBalance,
