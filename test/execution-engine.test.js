@@ -39,7 +39,7 @@ test("engine rejeita capacidade não suportada", async () => {
   });
 
   assert.equal(result.status, "REJECTED");
-  assert.equal(result.reason, "UNSUPPORTED_CAPABILITY");
+  assert.equal(result.reason, "CAPABILITY_UNAVAILABLE");
   assert.equal(result.actualCost, 0);
 });
 
