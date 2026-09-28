@@ -1,4 +1,4 @@
-export function calculateMetrics({ initialBalance, currentBalance, learning, strategies }) {
+export function calculateMetrics({ initialBalance, currentBalance, learning, strategies, production = null }) {
   const stats = learning.stats();
   const attempts = stats.attempts;
 
@@ -25,6 +25,7 @@ export function calculateMetrics({ initialBalance, currentBalance, learning, str
     averageNet,
     totalRevenue: Number(totalRevenue.toFixed(2)),
     totalLoss: Number(totalLoss.toFixed(2)),
+    production,
     strategies
   };
 }
