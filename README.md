@@ -46,3 +46,11 @@ A primeira ponte com o mundo real é deliberadamente sem dinheiro:
 - kill switch via `NEVERA_KILL_SWITCH=1`.
 
 Execute com `npm run sandbox`.
+
+
+## Continuous runtime
+
+Para manter o processo executando continuamente:
+`NEVERA_CYCLES=0 NEVERA_CYCLE_DELAY_MS=5000 npm start`
+
+O modo contínuo ainda é exclusivamente simulado. O Real Sandbox é separado e não movimenta dinheiro.
