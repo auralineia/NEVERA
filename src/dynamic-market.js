@@ -51,25 +51,7 @@ export class DynamicMarket {
     this.lastEvent = this.events.next(opportunities);
     this.#applyEventDemand(this.lastEvent);
 
-    const eventOpportunity =
-      this.lastEvent?.type === "NEW_DEMAND"
-        ? {
-            name: `Demanda emergente #${this.tick}`,
-            category: "EMERGING",
-            estimatedRevenue: 7,
-            estimatedCost: 1,
-            risk: 0.18,
-            effort: 2,
-            status: "OPEN",
-            source: "SIMULATED_MARKET_EVENT"
-          }
-        : null;
-
-    const marketInput = eventOpportunity
-      ? [...opportunities, eventOpportunity]
-      : opportunities;
-
-    return marketInput
+    return opportunities
       .filter((opportunity) => opportunity.status !== "CLOSED")
       .map((opportunity) => {
         const category = this.#category(opportunity);
