@@ -12,3 +12,10 @@ test("kill switch bloqueia tudo", () => {
   const guard = new Guardrails({ killSwitch: true });
   assert.equal(guard.allow(100, { estimatedCost: 1 }).reason, "KILL_SWITCH");
 });
+
+
+test("drawdown limit stops operations", () => {
+  const guard = new Guardrails({ reserveRatio: 0.1, maxOperationCost: 10, maxDrawdown: 0.5 });
+  guard.observe(10);
+  assert.equal(guard.allow(4, { estimatedCost: 1 }).reason, "DRAWDOWN_LIMIT");
+});
