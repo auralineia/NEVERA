@@ -50,6 +50,7 @@ import { evaluateAction } from "./post-action.js";
 import { testStrategy } from "./strategy-evolution.js";
 import { RevenueEngine } from "./revenue-engine.js";
 import { PaymentAdapter } from "./payment-adapter.js";
+import { createServer } from "node:http";
 import { configuredGlobalSources } from "./global-opportunity-sources.js";
 
 
@@ -111,6 +112,49 @@ const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
 const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
 const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
+
+const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
+const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
+const paymentWebhookServer = createServer(async (req, res) => {
+  if (req.method !== "POST" || req.url !== "/webhooks/payments") {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "NOT_FOUND" }));
+    return;
+  }
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > 1024 * 1024) throw new Error("PAYLOAD_TOO_LARGE");
+      chunks.push(chunk);
+    }
+    const rawBody = Buffer.concat(chunks);
+    if (!paymentAdapter.verifyWebhook(rawBody, req.headers["x-nevera-signature"] ?? req.headers["stripe-signature"])) {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "INVALID_SIGNATURE" }));
+      return;
+    }
+    const event = paymentAdapter.parseWebhook(rawBody);
+    if (!["PAID", "SUCCEEDED", "COMPLETED", "PAYMENT_SUCCEEDED"].includes(event.status)) {
+      res.writeHead(202, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ignored: event.status }));
+      return;
+    }
+    const confirmed = revenueEngine.confirmPayment(event.paymentId, { gross: event.gross, fees: event.fees });
+    const state = (await persistence.load()) ?? {};
+    state.revenueEngine = revenueEngine.snapshot();
+    await persistence.save(state);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, paymentId: confirmed.id, status: confirmed.status }));
+  } catch (error) {
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: error.message }));
+  }
+});
+paymentWebhookServer.listen(paymentWebhookPort, paymentWebhookHost, () => {
+  console.log(`NEVERA payment webhook listening on ${paymentWebhookHost}:${paymentWebhookPort}`);
+});
 
 const revenueCategories = [
   "DIGITAL_SERVICES",
