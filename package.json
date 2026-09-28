@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "test": "node --test",
     "sandbox": "node scripts/sandbox.js",
-    "health": "node scripts/health.js"
+    "health": "node scripts/health.js",
+    "economic-sandbox": "node scripts/economic-sandbox.js"
   },
   "engines": {
     "node": ">=20"
