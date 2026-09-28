@@ -7,14 +7,15 @@ function clean(value, fallback = "") {
 }
 
 export class DeliverableEngine {
-  constructor({ sandbox, baseDir = "/data/nevera-deliverables" } = {}) {
-    this.sandbox = sandbox; this.baseDir = baseDir; this.history = [];
+  constructor({ sandbox, generator = null, baseDir = "/data/nevera-deliverables" } = {}) {
+    this.sandbox = sandbox; this.generator = generator; this.baseDir = baseDir; this.history = [];
   }
 
   async fulfill(opportunity = {}) {
     const id = "DEL-" + randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase();
     const source = await this.#source(opportunity);
-    const artifact = this.#buildArtifact({ id, opportunity, source });
+    const generated = await this.#generate({ id, opportunity, source });
+    const artifact = generated ?? this.#buildArtifact({ id, opportunity, source });
     await mkdir(path.join(this.baseDir, id), { recursive: true });
     const files = [];
     for (const file of artifact.files) {
@@ -40,6 +41,35 @@ export class DeliverableEngine {
       const r = await this.sandbox.fetchPublic(url);
       return { ok:r.ok,status:r.status,preview:r.preview??"",data:r.data??null };
     } catch (e) { return { ok:false,error:e.message }; }
+  }
+
+  async #generate({ id, opportunity, source }) {
+    if (!this.generator?.configured) return null;
+    const evidence = source?.data ? JSON.stringify(source.data).slice(0, 12000) : (source?.preview ?? "");
+    const prompt = [
+      "Create the actual client work product for this opportunity.",
+      "Do not claim external actions were performed.",
+      "Use only the supplied evidence; clearly mark assumptions.",
+      "Return only the deliverable content, ready for client review.",
+      "Fulfillment ID: " + id,
+      "Title: " + (opportunity.title ?? opportunity.name ?? ""),
+      "Category: " + (opportunity.category ?? ""),
+      "Company: " + (opportunity.company ?? ""),
+      "Location: " + (opportunity.location ?? ""),
+      "Public evidence: " + evidence
+    ].join("\n");
+    try {
+      const content = await this.generator.generate({
+        system: "You are NEVERA's production engine. Produce useful, concrete, professional digital work. Never fabricate completed external actions, credentials, approvals, results, customers or payments.",
+        prompt,
+        maxTokens: 5000
+      });
+      if (!content || content.length < 80) return null;
+      return { type: "AI_GENERATED_WORK_PRODUCT", files: [{ name: "work-product.md", content }] };
+    } catch (error) {
+      this.history.push({ status: "GENERATION_FAILED", error: error.message, createdAt: new Date().toISOString() });
+      return null;
+    }
   }
 
   #buildArtifact({ id, opportunity, source }) {
