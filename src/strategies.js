@@ -1,35 +1,40 @@
+import { strategyConfidence } from "./confidence.js";
+
 export class StrategyPortfolio {
-  constructor(strategies = [
-    { name: "CONSERVATIVE", riskMultiplier: 0.8, revenueMultiplier: 0.9 },
-    { name: "BALANCED", riskMultiplier: 1, revenueMultiplier: 1 },
-    { name: "EXPLORATORY", riskMultiplier: 1.2, revenueMultiplier: 1.15 }
-  ], explorationInterval = 3) {
+  constructor(
+    strategies = [
+      { name: "CONSERVATIVE", riskMultiplier: 0.8, revenueMultiplier: 0.9 },
+      { name: "BALANCED", riskMultiplier: 1, revenueMultiplier: 1 },
+      { name: "EXPLORATORY", riskMultiplier: 1.2, revenueMultiplier: 1.15 }
+    ],
+    explorationInterval = 3,
+    initialResults = []
+  ) {
     this.strategies = strategies;
-    this.results = [];
+    this.results = [...initialResults];
     this.explorationInterval = explorationInterval;
   }
 
   choose(cycle = 1) {
-    // Periodically explore a different strategy so the agent keeps learning.
     if (cycle > 0 && cycle % this.explorationInterval === 0) {
-      return this.strategies[(cycle / this.explorationInterval - 1) % this.strategies.length];
+      return this.strategies[
+        (cycle / this.explorationInterval - 1) % this.strategies.length
+      ];
     }
 
     if (this.results.length === 0) return this.strategies[1];
 
-    const scored = this.strategies.map((strategy) => {
-      const history = this.results.filter(
-        (item) => item.strategy === strategy.name
-      );
+    const scored = this.strategies.map((strategy) => ({
+      strategy,
+      confidence: strategyConfidence(this.results, strategy.name)
+    }));
 
-      const averageNet = history.length
-        ? history.reduce((sum, item) => sum + item.net, 0) / history.length
-        : 0;
+    scored.sort(
+      (a, b) =>
+        b.confidence.confidence - a.confidence.confidence ||
+        b.confidence.averageNet - a.confidence.averageNet
+    );
 
-      return { strategy, averageNet };
-    });
-
-    scored.sort((a, b) => b.averageNet - a.averageNet);
     return scored[0].strategy;
   }
 
@@ -49,11 +54,14 @@ export class StrategyPortfolio {
       );
 
       const net = history.reduce((sum, item) => sum + item.net, 0);
+      const confidence = strategyConfidence(this.results, strategy.name);
 
       return {
         strategy: strategy.name,
         attempts: history.length,
-        net: Number(net.toFixed(2))
+        net: Number(net.toFixed(2)),
+        successRate: Number(confidence.successRate.toFixed(3)),
+        confidence: confidence.confidence
       };
     });
   }
