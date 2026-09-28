@@ -48,6 +48,7 @@ import { StrategyMemory } from "./strategy-memory.js";
 import { RiskMemory } from "./risk-memory.js";
 import { evaluateAction } from "./post-action.js";
 import { testStrategy } from "./strategy-evolution.js";
+import { RevenueEngine } from "./revenue-engine.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -106,7 +107,9 @@ const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueCategories = [
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
+
+const revenueCategories = [
   "DIGITAL_SERVICES",
   "BUSINESS_AUTOMATION",
   "CONTENT_AND_MEDIA",
@@ -177,6 +180,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     ? []
     : planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
+  const revenueOffers = revenueEngine.cycle({ opportunities: opportunityBatch.map((item) => ({ ...item.opportunity, score: item.score ?? item.opportunity?.score ?? 0.5 })), maxOffers: 5 });
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
     try {
@@ -337,6 +341,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     publicOpportunities,
     publicTasks,
     opportunityStats,
+    revenueEngine: revenueEngine.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
@@ -411,5 +416,6 @@ console.log(JSON.stringify({
   telemetry: telemetry.snapshot(),
   runtime: runtime.snapshot(),
   recovery: recovery.snapshot(),
+  revenueEngine: revenueEngine.snapshot(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
