@@ -53,6 +53,7 @@ import { PaymentAdapter } from "./payment-adapter.js";
 import { createServer } from "node:http";
 import { configuredGlobalSources } from "./global-opportunity-sources.js";
 import { DeliverableEngine } from "./deliverable-engine.js";
+import { GenerationProvider } from "./generation-provider.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -93,8 +94,10 @@ const discovery = new OpportunityDiscovery({
   }))
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
+const generationProvider = new GenerationProvider();
 const deliverableEngine = new DeliverableEngine({
   sandbox: realSandbox,
+  generator: generationProvider,
   baseDir: process.env.NEVERA_DELIVERABLE_DIR ?? "/data/nevera-deliverables"
 });
 const savedDeliverables = Array.isArray(saved?.deliverables) ? saved.deliverables : [];
@@ -140,7 +143,8 @@ const paymentWebhookServer = createServer(async (req, res) => {
       ok: true,
       service: "NEVERA",
       cycle: nevera?.snapshot?.().cycle ?? null,
-      payment: paymentAdapter.status()
+      payment: paymentAdapter.status(),
+      generation: generationProvider.status()
     }));
     return;
   }
@@ -536,6 +540,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     sandbox: realSandbox.snapshot(),
     taskExecutor: taskExecutor.snapshot(),
     deliverables: deliverableEngine.snapshot(),
+    generation: generationProvider.status(),
     telemetry: telemetry.snapshot(),
     runtime: runtime.snapshot(),
     publicOpportunities,
