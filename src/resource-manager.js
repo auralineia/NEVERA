@@ -5,6 +5,7 @@ export class ResourceManager {
     simulated_product_builder: 2,
     simulated_general_executor: 2
   }) {
+    this.capacity = { ...initialResources };
     this.resources = { ...initialResources };
   }
 
@@ -26,10 +27,23 @@ export class ResourceManager {
 
   replenish(resource, amount = 1) {
     if (amount < 0) throw new Error("amount must be non-negative");
-    this.resources[resource] = (this.resources[resource] ?? 0) + amount;
+    const max = this.capacity[resource] ?? Number.POSITIVE_INFINITY;
+    this.resources[resource] = Math.min(
+      max,
+      (this.resources[resource] ?? 0) + amount
+    );
+  }
+
+  beginCycle() {
+    this.resources = { ...this.capacity };
+    return this.snapshot();
   }
 
   snapshot() {
     return { ...this.resources };
+  }
+
+  capacitySnapshot() {
+    return { ...this.capacity };
   }
 }
