@@ -18,6 +18,9 @@ export class NeveraAgent {
   }
 
   async cycle(strategyProfile = null) {
+    const resources = this.executionEngine.beginCycle();
+    this.nevera.log("RESOURCE_CYCLE", { resources });
+
     const state = this.nevera.snapshot();
     const decision = this.brain.think(state);
 
