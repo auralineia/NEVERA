@@ -106,7 +106,22 @@ const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });\n\nconst revenueCategories = [
+  "DIGITAL_SERVICES",
+  "BUSINESS_AUTOMATION",
+  "CONTENT_AND_MEDIA",
+  "DIGITAL_PRODUCTS",
+  "ECOMMERCE",
+  "DATA_AND_RESEARCH",
+  "MICRO_SAAS",
+  "APPS_AND_TOOLS",
+  "AFFILIATE_MARKETING",
+  "B2B_CONTRACTS",
+  "ARBITRAGE",
+  "INVESTMENT_RESEARCH"
+];
+
+
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
@@ -114,7 +129,7 @@ const dynamicMarket = new DynamicMarket(
 );
 
 nevera.boot();
-brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
+brain.setObjective("Descobrir, testar, executar e otimizar continuamente múltiplas fontes legítimas e sustentáveis de receita");
 
 const agent = new NeveraAgent(
   nevera,
