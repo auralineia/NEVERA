@@ -44,7 +44,6 @@ import { LongTermMemory } from "./long-term-memory.js";
 import { metaLearn } from "./meta-learning.js";
 import { DecisionFilter } from "./decision-filter.js";
 import { StrategyLab } from "./strategy-lab.js";
-import { evaluateStrategy } from "./strategy-evaluator.js";
 import { StrategyMemory } from "./strategy-memory.js";
 import { RiskMemory } from "./risk-memory.js";
 import { evaluateAction } from "./post-action.js";
@@ -98,7 +97,7 @@ const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.e
 const cycleController = new CycleController();
 const longTermMemory = new LongTermMemory(saved?.longTermMemory ?? []);
 const decisionFilter = new DecisionFilter();
-const strategyLab = new StrategyLab();
+const strategyLab = new StrategyLab(saved?.strategyLab ?? []);
 const strategyMemory = new StrategyMemory(saved?.strategyMemory ?? []);
 const riskMemory = new RiskMemory(saved?.riskMemory ?? []);
 const runtime = new Runtime();
@@ -169,8 +168,6 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const meta = metaLearn({ strategies: portfolio.stats(), experiments: experiments.recent(20), failures: learning.stats().failures ?? 0 });
-  const experimentalStrategy = strategyLab.generate({ riskTolerance: guardrails.maxOperationCost / 2, costLimit: guardrails.maxOperationCost });
-  longTermMemory.remember("STRATEGY_GENERATED", experimentalStrategy);
   const strategy = portfolio.choose(cycle);
   const mutation = strategyLab.mutate(strategy, portfolio.stats().find((item) => item.strategy === strategy.name));
   const mutationTest = testStrategy(mutation, market.available(), { cycles: 8, seed: cycle * 101, regime: cycle % 4 === 0 ? "SHOCK" : cycle % 3 === 0 ? "RECESSION" : "STABLE" });
@@ -231,12 +228,11 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     .map((item) => item.action?.outcome)
     .filter(Boolean);
 
-  const balanceAfterAction = nevera.snapshot().economy.balance;
   for (const item of result.actions ?? []) {
     const outcome = item.action?.outcome;
     const opportunity = item.opportunity ?? null;
     if (!outcome || !opportunity) continue;
-    const actionEvaluation = evaluateAction({ opportunity, outcome, balanceBefore: balanceBeforeAction, balanceAfter: balanceAfterAction });
+    const actionEvaluation = evaluateAction({ opportunity, outcome, balanceBefore: item.action?.balanceBefore ?? balanceBeforeAction, balanceAfter: item.action?.balanceAfter ?? balanceAfterAction });
     const risk = opportunity.risk ?? 0;
     economicMemory.record(opportunity, outcome);
     failureMemory.record(opportunity, outcome);
@@ -321,7 +317,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     portfolio,
     opportunityStats,
     opportunityQueue: opportunityEngine.snapshot(),
-  economicMemory: economicMemory.export(),
+    economicMemory: economicMemory.export(),
   failureMemory: failureMemory.export(),
   survival: survivalMetrics({
     initialBalance,
