@@ -119,6 +119,8 @@ const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? pro
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
 const liveCheckoutEnabled = String(process.env.NEVERA_LIVE_CHECKOUTS ?? "false").toLowerCase() === "true";
 const liveCheckoutMaxPerCycle = Math.max(1, Number(process.env.NEVERA_LIVE_MAX_CHECKOUTS_PER_CYCLE ?? 1));
+const liveCheckoutMinIntervalMs = Math.max(0, Number(process.env.NEVERA_LIVE_MIN_INTERVAL_MS ?? 600000));
+let lastLiveCheckoutAt = 0;
 
 const paymentWebhookServer = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") {
@@ -281,6 +283,10 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
         telemetry.record("LIVE_CHECKOUT_BLOCKED", { cycle, offer: offer.id, reason: "EXPLICIT_LIVE_CHECKOUTS_REQUIRED" });
         continue;
       }
+      if (paymentAdapter.liveAuthorized && liveCheckoutEnabled && Date.now() - lastLiveCheckoutAt < liveCheckoutMinIntervalMs) {
+        telemetry.record("LIVE_CHECKOUT_THROTTLED", { cycle, offer: offer.id, minIntervalMs: liveCheckoutMinIntervalMs });
+        continue;
+      }
       const payment = revenueEngine.createPaymentIntent(offer);
       const checkout = await paymentAdapter.createCheckout({
         paymentId: payment.id,
@@ -292,6 +298,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
       });
       payment.checkout = checkout;
       payment.provider = checkout.provider ?? payment.provider;
+      if (paymentAdapter.liveAuthorized && checkout.status === "CHECKOUT_CREATED") lastLiveCheckoutAt = Date.now();
     } catch (error) {
       telemetry.record("PAYMENT_ADAPTER_ERROR", { cycle, offer: offer.id, message: error.message });
     }
