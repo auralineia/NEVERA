@@ -24,6 +24,9 @@ const creator = new OpportunityCreator();
 const survival = new SurvivalManager();
 const portfolio = new StrategyPortfolio();
 
+nevera.boot();
+brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
+
 const agent = new NeveraAgent(
   nevera,
   brain,
@@ -37,12 +40,12 @@ const agent = new NeveraAgent(
   survival
 );
 
-nevera.boot();
-brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
+const startCycle = (saved?.cycle ?? 0) + 1;
 
-for (let cycle = 1; cycle <= 5 && !nevera.isDead(); cycle += 1) {
-  const strategy = portfolio.choose();
-  const result = await agent.cycle();
+for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
+  const cycle = startCycle + offset;
+  const strategy = portfolio.choose(cycle);
+  const result = await agent.cycle(strategy);
 
   if (result.action?.outcome) {
     portfolio.record(strategy, result.action.outcome);
