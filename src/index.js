@@ -474,6 +474,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   await persistence.save({
     initialBalance,
     balance: nevera.snapshot().economy.balance,
+    status: nevera.snapshot().status,
     cycle,
     learning: learning.export(),
     strategies: portfolio.export(),
