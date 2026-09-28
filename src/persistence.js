@@ -18,7 +18,19 @@ export class Persistence {
       const raw = await readFile(this.filePath, "utf8");
       return JSON.parse(raw);
     } catch (error) {
-      if (error.code === "ENOENT") return null;
+      if (error.code !== "ENOENT" && error instanceof SyntaxError) {
+        try {
+          const backup = await readFile(this.tempPath, "utf8");
+          return JSON.parse(backup);
+        } catch {}
+      }
+      if (error.code === "ENOENT") {
+        try {
+          const backup = await readFile(this.tempPath, "utf8");
+          return JSON.parse(backup);
+        } catch {}
+        return null;
+      }
       throw error;
     }
   }
