@@ -1,8 +1,8 @@
 import { runBacktestBatch } from "../src/backtest.js";
 
 const result = await runBacktestBatch({
-  runs: 100,
-  cycles: 250,
+  runs: 20,
+  cycles: 1000,
   initialBalance: 10,
   seed: 20260928
 });
