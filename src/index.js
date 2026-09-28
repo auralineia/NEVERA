@@ -10,6 +10,7 @@ import { OpportunityCreator } from "./creator.js";
 import { evaluateOpportunity } from "./evaluator.js";
 import { Persistence } from "./persistence.js";
 import { SurvivalManager } from "./survival.js";
+import { StrategyPortfolio } from "./strategies.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -21,6 +22,7 @@ const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
 const creator = new OpportunityCreator();
 const survival = new SurvivalManager();
+const portfolio = new StrategyPortfolio();
 
 const agent = new NeveraAgent(
   nevera,
@@ -39,17 +41,24 @@ nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
 
 for (let cycle = 1; cycle <= 5 && !nevera.isDead(); cycle += 1) {
+  const strategy = portfolio.choose();
   const result = await agent.cycle();
+
+  if (result.action?.outcome) {
+    portfolio.record(strategy, result.action.outcome);
+  }
 
   await persistence.save({
     balance: nevera.snapshot().economy.balance,
     cycle,
     learning: learning.export(),
+    strategies: portfolio.export(),
     lastResult: result
   });
 
   console.log(JSON.stringify({
     cycle,
+    strategy: strategy.name,
     balance: nevera.snapshot().economy.balance,
     result
   }, null, 2));
@@ -58,5 +67,6 @@ for (let cycle = 1; cycle <= 5 && !nevera.isDead(); cycle += 1) {
 console.log(JSON.stringify({
   agent: nevera.snapshot(),
   learning: learning.stats(),
+  strategies: portfolio.stats(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
