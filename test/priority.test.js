@@ -55,3 +55,28 @@ test("histórico positivo da categoria aumenta prioridade", () => {
     calculateProductionPriority(item, null)
   );
 });
+
+
+test("pesos de prioridade aprendem apenas com histórico suficiente", async () => {
+  const { learnPriorityWeights, defaultPriorityWeights } = await import("../src/priority.js");
+
+  const weights = defaultPriorityWeights();
+  const insufficient = {
+    categories() {
+      return [{ category: "SERVICE", attempts: 2, successRate: 1, averageNet: 10 }];
+    }
+  };
+
+  assert.deepEqual(learnPriorityWeights(insufficient, weights), weights);
+
+  const experienced = {
+    categories() {
+      return [{ category: "SERVICE", attempts: 10, successRate: 0.9, averageNet: 5 }];
+    }
+  };
+
+  const learned = learnPriorityWeights(experienced, weights);
+  assert.notDeepEqual(learned, weights);
+  assert.ok(learned.margin > weights.margin);
+  assert.ok(learned.successProbability > weights.successProbability);
+});
