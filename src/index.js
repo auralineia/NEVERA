@@ -28,6 +28,9 @@ import { translatePublicSignals } from "./public-opportunities.js";
 import { planPublicTasks } from "./task-planner.js";
 import { RecoveryManager } from "./recovery.js";
 import { taskToExecution } from "./task-planner.js";
+import { OpportunityEngine } from "./opportunity-engine.js";
+import { defaultOpportunitySources, normalizeSources } from "./opportunity-sources.js";
+import { opportunityMetrics } from "./opportunity-metrics.js";
 
 
 const persistence = new Persistence();
@@ -58,13 +61,20 @@ const realSandbox = new RealSandbox({
 });
 const discovery = new OpportunityDiscovery({
   sandbox: realSandbox,
-  sources: [{ name: "public-sandbox-source", url: process.env.NEVERA_SANDBOX_URL ?? "https://example.com" }]
+  sources: opportunitySources.map((source) => ({
+    ...source,
+    url: process.env.NEVERA_SANDBOX_URL && source.name === "example-public"
+      ? process.env.NEVERA_SANDBOX_URL
+      : source.url
+  }))
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10 });
+const opportunitySources = normalizeSources(defaultOpportunitySources());
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
@@ -108,7 +118,9 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   telemetry.record("CYCLE_START", { cycle });
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
-  const publicTasks = planPublicTasks(publicOpportunities);
+  const opportunityBatch = opportunityEngine.discover(publicOpportunities, nevera.snapshot().economy.balance);
+  const publicTasks = planPublicTasks(opportunityBatch.map((item) => item.opportunity));
+  const opportunityStats = opportunityMetrics(opportunityBatch);
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
     try {
@@ -223,7 +235,10 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     runtime: runtime.snapshot(),
     publicOpportunities,
     publicTasks,
+    opportunityStats,
+    opportunityQueue: opportunityEngine.snapshot(),
     recovery: recovery.snapshot(),
+  opportunityQueue: opportunityEngine.snapshot(),
     lastResult: result
   });
 
