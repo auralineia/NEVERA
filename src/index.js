@@ -127,6 +127,7 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     experiments: experiments.export(),
     explorationInterval,
     throughput: throughput.snapshot(),
+    priorityWeights: agent.priorityWeights,
     marketSeed: 42,
     marketEvents: dynamicMarket.state(),
     metrics,
