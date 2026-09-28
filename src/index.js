@@ -54,7 +54,12 @@ const agent = new NeveraAgent(
   creator,
   evaluateOpportunity,
   survival,
-  dynamicMarket
+  dynamicMarket,
+  null,
+  {
+    priorityWeights: saved?.priorityWeights ?? null,
+    queueState: saved?.productionQueue ?? null
+  }
 );
 
 let explorationInterval = saved?.explorationInterval ?? 3;
@@ -107,7 +112,8 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     initialBalance,
     currentBalance: nevera.snapshot().economy.balance,
     learning,
-    strategies: portfolio.stats()
+    strategies: portfolio.stats(),
+    production: agent.productionQueue.stats()
   });
 
   const adaptation = adaptationEngine.adapt({
@@ -128,6 +134,10 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
     explorationInterval,
     throughput: throughput.snapshot(),
     priorityWeights: agent.priorityWeights,
+    productionQueue: {
+      items: agent.productionQueue.snapshot(),
+      ...agent.productionQueue.stats()
+    },
     marketSeed: 42,
     marketEvents: dynamicMarket.state(),
     metrics,
