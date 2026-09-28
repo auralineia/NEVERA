@@ -8,7 +8,11 @@
     "test": "node --test",
     "sandbox": "node scripts/sandbox.js",
     "health": "node scripts/health.js",
-    "economic-sandbox": "node scripts/economic-sandbox.js"
+    "economic-sandbox": "node scripts/economic-sandbox.js",
+    "worker": "node scripts/worker.js",
+    "dashboard": "node scripts/dashboard.js",
+    "paper-economy": "node scripts/paper-economy.js",
+    "stress-test": "node scripts/stress-test.js"
   },
   "engines": {
     "node": ">=20"
