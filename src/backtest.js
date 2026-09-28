@@ -13,6 +13,131 @@ import { StrategyPortfolio } from "./strategies.js";
 import { AdaptationEngine } from "./adaptation.js";
 import { DynamicMarket } from "./dynamic-market.js";
 
+async function runFastBacktest({
+  initialBalance,
+  cycles,
+  seed,
+  marketFactory,
+  simulatorFactory,
+  dynamicMarketFactory
+}) {
+  const nevera = new Nevera({ initialBalance });
+  const market = marketFactory();
+  const learning = new Learning();
+  const survival = new SurvivalManager();
+  const portfolio = new StrategyPortfolio();
+  const adaptation = new AdaptationEngine();
+  const dynamicMarket = dynamicMarketFactory
+    ? dynamicMarketFactory(seed)
+    : new DynamicMarket(seed);
+  const random = createSeededRandom(seed * 7919 + 17);
+  const simulator = simulatorFactory
+    ? simulatorFactory(random, seed)
+    : (opportunity) => simulateOutcome(opportunity, random);
+
+  nevera.boot();
+
+  let explorationInterval = 3;
+  let cyclesExecuted = 0;
+  let cyclesWithOutcome = 0;
+  let peakBalance = initialBalance;
+  let maxDrawdownValue = 0;
+
+  for (let cycle = 1; cycle <= cycles && !nevera.isDead?.() && nevera.snapshot().status !== "DEAD"; cycle += 1) {
+    cyclesExecuted += 1;
+    portfolio.explorationInterval = explorationInterval;
+
+    const state = nevera.snapshot();
+    const opportunities = dynamicMarket
+      ? dynamicMarket.evolve(market.available())
+      : market.available();
+
+    const candidates = opportunities
+      .map((opportunity) => ({
+        opportunity,
+        evaluation: evaluateOpportunity(opportunity, state.economy.balance),
+        survival: survival.assess(state.economy.balance, opportunity),
+        demandAvailable: dynamicMarket ? dynamicMarket.hasDemand(opportunity) : true
+      }))
+      .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable)
+      .filter((item) => {
+        const stats = learning.categoryStats?.(item.opportunity.category);
+        return !(stats?.attempts >= 3 && stats.successRate < 0.3);
+      });
+
+    const choice = chooseOpportunity(
+      candidates.map((item) => item.opportunity),
+      state.economy.balance,
+      learning
+    );
+
+    if (!choice) {
+      explorationInterval = adaptation.adapt({
+        strategyStats: portfolio.stats(),
+        experimentStats: { successRate: learning.stats().successRate },
+        currentExplorationInterval: explorationInterval
+      }).explorationInterval;
+      continue;
+    }
+
+    const selected = candidates.find((item) => item.opportunity.name === choice.opportunity.name);
+    if (!selected) continue;
+
+    const opportunity = selected.opportunity;
+    if (dynamicMarket && !dynamicMarket.consume(opportunity)) continue;
+
+    const outcome = await simulator(opportunity);
+
+    if (outcome.cost > 0) nevera.spend(outcome.cost, `backtest: ${opportunity.name}`);
+    if (outcome.revenue > 0 && outcome.status === "SUCCESS") {
+      nevera.earn(outcome.revenue, `backtest: ${opportunity.name}`);
+    }
+
+    opportunity.status = "CLOSED";
+    learning.record(opportunity, outcome);
+    portfolio.record(portfolio.choose(cycle), outcome);
+    cyclesWithOutcome += 1;
+
+    const currentBalance = nevera.snapshot().economy.balance;
+    peakBalance = Math.max(peakBalance, currentBalance);
+    const drawdown = peakBalance > 0 ? (peakBalance - currentBalance) / peakBalance : 0;
+    maxDrawdownValue = Math.max(maxDrawdownValue, drawdown);
+
+    explorationInterval = adaptation.adapt({
+      strategyStats: portfolio.stats(),
+      experimentStats: { successRate: learning.stats().successRate },
+      currentExplorationInterval: explorationInterval
+    }).explorationInterval;
+  }
+
+  const finalBalance = nevera.snapshot().economy.balance;
+  const stats = learning.stats();
+  const nets = learning.results.map((item) => Number(item.net ?? 0));
+  const meanNet = nets.length ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+  const variance = nets.length ? nets.reduce((sum, value) => sum + (value - meanNet) ** 2, 0) / nets.length : 0;
+
+  return {
+    initialBalance,
+    finalBalance,
+    netWorthChange: Number((finalBalance - initialBalance).toFixed(2)),
+    cyclesRequested: cycles,
+    cyclesExecuted,
+    cyclesWithOutcome,
+    attempts: stats.attempts,
+    successRate: stats.successRate,
+    net: stats.net,
+    alive: nevera.snapshot().status !== "DEAD",
+    status: nevera.snapshot().status,
+    explorationInterval,
+    categories: learning.categories(),
+    strategies: portfolio.stats(),
+    failureRate: stats.attempts ? Number((stats.failures / stats.attempts).toFixed(4)) : 0,
+    maxDrawdown: Number(maxDrawdownValue.toFixed(4)),
+    volatility: Number(Math.sqrt(variance).toFixed(4)),
+    mode: "FAST_ECONOMIC_BACKTEST"
+  };
+}
+
 export async function runBacktest({
   initialBalance = 10,
   cycles = 1000,
@@ -20,8 +145,20 @@ export async function runBacktest({
   marketFactory = defaultMarket,
   simulatorFactory = null,
   dynamicMarketFactory = null,
-  executionEngineFactory = null
+  executionEngineFactory = null,
+  fast = true
 } = {}) {
+  if (fast && marketFactory === defaultMarket && !executionEngineFactory) {
+    return runFastBacktest({
+      initialBalance,
+      cycles,
+      seed,
+      marketFactory,
+      simulatorFactory,
+      dynamicMarketFactory
+    });
+  }
+
   const nevera = new Nevera({ initialBalance });
   const brain = new Brain();
   const tools = createSimulationTools();
@@ -119,7 +256,8 @@ export async function runBacktestBatch({
   simulatorFactory = null,
   dynamicMarketFactory = null,
   executionEngineFactory = null,
-  concurrency = 4
+  concurrency = 4,
+  fast = true
 } = {}) {
   const results = [];
   const width = Math.max(1, Math.min(runs, Math.floor(Number(concurrency) || 1)));
@@ -129,7 +267,7 @@ export async function runBacktestBatch({
     const { Worker } = await import("node:worker_threads");
     const runWorker = (runSeed) => new Promise((resolve, reject) => {
       const worker = new Worker(new URL("../scripts/backtest-worker.js", import.meta.url), {
-        workerData: { initialBalance, cycles, seed: runSeed }
+        workerData: { initialBalance, cycles, seed: runSeed, fast }
       });
       worker.once("message", (message) => {
         worker.terminate();
@@ -160,7 +298,8 @@ export async function runBacktestBatch({
           marketFactory,
           simulatorFactory,
           dynamicMarketFactory,
-          executionEngineFactory
+          executionEngineFactory,
+          fast
         })
       );
       results.push(...await Promise.all(batch));
