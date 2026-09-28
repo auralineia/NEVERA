@@ -5,8 +5,32 @@ import { chooseOpportunities } from "./strategy.js";
 import { ProductionQueue } from "./production-queue.js";
 import { calculateProductionPriority, defaultPriorityWeights, learnPriorityWeights } from "./priority.js";
 
+function transformOpportunity(opportunity, strategyProfile = null) {
+  if (!strategyProfile) return opportunity;
+
+  return {
+    ...opportunity,
+    estimatedCost: Number((opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)),
+    estimatedRevenue: Number((opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)),
+    risk: Math.min(0.95, Number((opportunity.risk * strategyProfile.riskMultiplier).toFixed(4)))
+  };
+}
+
+function isRetryable(result) {
+  return [
+    "EXECUTION_FAILED",
+    "QUALITY_GATE_FAILED",
+    "EXECUTION_CAPABILITY_UNAVAILABLE",
+    "MARKET_DEMAND_EXHAUSTED",
+    "HOLD_CAPITAL"
+  ].includes(result?.result?.reason);
+}
+
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null, {
+    priorityWeights = null,
+    queueState = null
+  } = {}) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -20,8 +44,11 @@ export class NeveraAgent {
     this.dynamicMarket = dynamicMarket;
     this.executionEngine = executionEngine ?? new ExecutionEngine();
     this.capitalPolicy = new CapitalPolicy();
-    this.priorityWeights = defaultPriorityWeights();
-    this.productionQueue = new ProductionQueue((item) => calculateProductionPriority(item, this.learning, this.priorityWeights));
+    this.priorityWeights = priorityWeights ?? defaultPriorityWeights();
+    this.productionQueue = new ProductionQueue(
+      (item) => calculateProductionPriority(item, this.learning, this.priorityWeights),
+      queueState ?? {}
+    );
   }
 
   async cycle(strategyProfile = null, { maxActions = 3 } = {}) {
@@ -44,7 +71,10 @@ export class NeveraAgent {
     }
     if (batch.length > 1) {
       const results = await this.executePreparedBatch(batch, strategyProfile);
-      results.forEach((result) => this.productionQueue.recordResult(result));
+      results.forEach((result, index) => {
+        this.productionQueue.recordResult(result);
+        if (isRetryable(result)) this.productionQueue.requeue([batch[index]]);
+      });
       actions.push(...results);
     } else {
       for (let index = 0; index < maxActions; index += 1) {
@@ -94,21 +124,7 @@ export class NeveraAgent {
       const candidate = candidates.find(
         (item) => item.opportunity.name === choice.opportunity.name
       );
-      const executionOpportunity = strategyProfile
-        ? {
-            ...choice.opportunity,
-            estimatedCost: Number(
-              (choice.opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)
-            ),
-            estimatedRevenue: Number(
-              (choice.opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)
-            ),
-            risk: Math.min(
-              0.95,
-              Number((choice.opportunity.risk * strategyProfile.riskMultiplier).toFixed(4))
-            )
-          }
-        : choice.opportunity;
+      const executionOpportunity = transformOpportunity(choice.opportunity, strategyProfile);
 
       return {
         choice,
@@ -126,12 +142,7 @@ export class NeveraAgent {
   async executePreparedBatch(batch, strategyProfile = null) {
     const prepared = batch.map((item) => ({
       item,
-      opportunity: strategyProfile ? {
-        ...item.choice.opportunity,
-        estimatedCost: Number((item.choice.opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)),
-        estimatedRevenue: Number((item.choice.opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)),
-        risk: Math.min(0.95, Number((item.choice.opportunity.risk * strategyProfile.riskMultiplier).toFixed(4)))
-      } : item.choice.opportunity
+      opportunity: transformOpportunity(item.choice.opportunity, strategyProfile)
     }));
 
     const executable = prepared.filter(({ opportunity }) =>
@@ -159,6 +170,7 @@ export class NeveraAgent {
       const execution = executions[index];
       if (execution?.status !== "SUCCESS") {
         this.dynamicMarket?.release(opportunity);
+        this.executionEngine.releaseExecution?.(execution);
         results.push({ result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } });
         continue;
       }
@@ -167,6 +179,7 @@ export class NeveraAgent {
       const quality = validateExecution({ opportunity, execution, outcome });
       if (!quality.passed) {
         this.dynamicMarket?.release(opportunity);
+        this.executionEngine.releaseExecution?.(execution);
         results.push({ result: { status: "NO_ACTION", reason: "QUALITY_GATE_FAILED" }, action: { execution, outcome: null } });
         continue;
       }
@@ -193,12 +206,7 @@ export class NeveraAgent {
 
   async executePrepared(item, strategyProfile = null) {
     const opportunity = item.choice.opportunity;
-    const executionOpportunity = strategyProfile ? {
-      ...opportunity,
-      estimatedCost: Number((opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)),
-      estimatedRevenue: Number((opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)),
-      risk: Math.min(0.95, Number((opportunity.risk * strategyProfile.riskMultiplier).toFixed(4)))
-    } : opportunity;
+    const executionOpportunity = transformOpportunity(opportunity, strategyProfile);
 
     const capitalDecision = this.capitalPolicy.decide(
       this.nevera.snapshot().economy.balance,
@@ -212,6 +220,8 @@ export class NeveraAgent {
 
     const execution = await this.executionEngine.execute(executionOpportunity);
     if (execution.status !== "SUCCESS") {
+      this.executionEngine.releaseExecution?.(execution);
+      this.dynamicMarket?.release(opportunity);
       this.dynamicMarket?.release(opportunity);
       return { result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } };
     }
@@ -219,6 +229,7 @@ export class NeveraAgent {
     const outcome = await this.simulator(executionOpportunity);
     const quality = validateExecution({ opportunity: executionOpportunity, execution, outcome });
     if (!quality.passed) {
+      this.executionEngine.releaseExecution?.(execution);
       this.dynamicMarket?.release(opportunity);
       return { result: { status: "NO_ACTION", reason: "QUALITY_GATE_FAILED" }, action: { execution, outcome: null } };
     }
