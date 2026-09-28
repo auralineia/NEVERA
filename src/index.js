@@ -310,6 +310,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
         continue;
       }
       const payment = revenueEngine.createPaymentIntent(offer);
+      if (paymentAdapter.liveAuthorized) lastLiveCheckoutAt = Date.now();
       const checkout = await paymentAdapter.createCheckout({
         paymentId: payment.id,
         offerId: offer.id,
@@ -322,6 +323,18 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
       payment.provider = checkout.provider ?? payment.provider;
       if (paymentAdapter.liveAuthorized && checkout.status === "CHECKOUT_CREATED") lastLiveCheckoutAt = Date.now();
     } catch (error) {
+      const payment = revenueEngine.paymentIntents.at(-1);
+      if (payment?.offerId === offer.id) {
+        payment.status = "CHECKOUT_FAILED";
+        payment.checkout = {
+          mode: "LIVE",
+          provider: paymentAdapter.provider,
+          paymentId: payment.id,
+          status: "CHECKOUT_FAILED",
+          error: String(error?.message ?? "CHECKOUT_FAILED").slice(0, 500),
+          failedAt: new Date().toISOString()
+        };
+      }
       telemetry.record("PAYMENT_ADAPTER_ERROR", { cycle, offer: offer.id, message: error.message });
     }
   }
