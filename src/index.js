@@ -58,7 +58,8 @@ const agent = new NeveraAgent(
   null,
   {
     priorityWeights: saved?.priorityWeights ?? null,
-    queueState: saved?.productionQueue ?? null
+    queueState: saved?.productionQueue ?? null,
+    experimentEvidence: saved?.experimentEvidence ?? []
   }
 );
 
@@ -70,6 +71,9 @@ for (let offset = 0; offset < 5 && nevera.snapshot().status !== "DEAD"; offset +
   const cycle = startCycle + offset;
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
+  agent.experimentEvidence = experiments.recent(20)
+    .map((item) => experiments.evaluate(item.id))
+    .filter(Boolean);
   const experiment = experiments.start({
     cycle,
     hypothesis: hypothesisEngine.generate({
