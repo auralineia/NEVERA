@@ -51,31 +51,38 @@ export class NeveraAgent {
       this.nevera.log("MARKET_EVENT", marketEvent);
     }
 
-    const marketContext = marketOpportunities[0] ?? {};
-    const discovered = this.creator.discover(this.learning, {
-      demand: marketContext.demand,
-      competition: marketContext.competition
-    });
-    const discoveredEvaluation = this.evaluator(
-      discovered,
-      state.economy.balance
-    );
+    const marketContexts = [
+      ...marketOpportunities.slice(0, 3).map((item) => ({
+        demand: item.demand ?? item.marketContext?.demand ?? 1,
+        competition: item.competition ?? item.marketContext?.competition ?? 1
+      })),
+      { demand: 1.2, competition: 0.8 },
+      { demand: 0.85, competition: 1.2 }
+    ];
 
-    this.nevera.log("OPPORTUNITY_DISCOVERED", {
-      opportunity: discovered,
-      evaluation: discoveredEvaluation
+    const discovered = this.creator.scan(this.learning, marketContexts);
+    const discoveredEvaluations = discovered.map((opportunity) => ({
+      opportunity,
+      evaluation: this.evaluator(opportunity, state.economy.balance)
+    }));
+
+    this.nevera.log("OPPORTUNITY_SCAN", {
+      count: discoveredEvaluations.length,
+      results: discoveredEvaluations
     });
 
-    if (discoveredEvaluation.viable) {
-      this.market.add(discovered);
+    for (const item of discoveredEvaluations) {
+      if (item.evaluation.viable) {
+        this.market.add(item.opportunity);
+      }
     }
 
-    const candidates = marketOpportunities
+    const candidates = this.market.available()
       .map((opportunity) => ({
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
         survival: this.survival.assess(state.economy.balance, opportunity)
-      }))
+      })
       .filter((item) => item.evaluation.viable && item.survival.allowed);
 
     const choice = this.strategy(
