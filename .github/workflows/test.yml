@@ -9,39 +9,56 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm test
-      - name: Run large backtest
-        timeout-minutes: 20
+      - name: Run backtest smoke test
+        timeout-minutes: 3
+        env:
+          NEVERA_BACKTEST_RUNS: 4
+          NEVERA_BACKTEST_CYCLES: 100
+          NEVERA_BACKTEST_BALANCE: 10
+          NEVERA_BACKTEST_SEED: 20260928
         run: node scripts/backtest.js > backtest-result.json
+      - name: Verify backtest smoke result
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const r = JSON.parse(fs.readFileSync("backtest-result.json", "utf8"));
+          if (r.runs !== 4 || r.cycles !== 100 || !Number.isFinite(r.averageFinalBalance)) {
+            throw new Error("BACKTEST_SMOKE_INVALID");
+          }
+          console.log("=== NEVERA BACKTEST SMOKE ===");
+          console.log(JSON.stringify({
+            runs: r.runs,
+            cycles: r.cycles,
+            survivalRate: r.survivalRate,
+            averageFinalBalance: r.averageFinalBalance,
+            averageNetReturn: r.averageNetReturn
+          }, null, 2));
+          NODE
       - name: Upload backtest result
         uses: actions/upload-artifact@v4
         with:
-          name: nevera-backtest
+          name: nevera-backtest-smoke
           path: backtest-result.json
-
       - name: Run adversarial stress test
-        timeout-minutes: 8
+        timeout-minutes: 3
         run: node scripts/stress-test.js > stress-test-result.json
-      - name: Print stress test summary
+      - name: Verify stress test
         run: |
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           const r = JSON.parse(fs.readFileSync("stress-test-result.json", "utf8"));
-          console.log("=== NEVERA STRESS TEST SUMMARY ===");
+          if (r.passed !== true) throw new Error("STRESS_TEST_FAILED");
           console.log(JSON.stringify({
-            runsPerScenario: r.runsPerScenario,
-            cycles: r.cycles,
             totalCycles: r.totalCycles,
-            initialBalance: r.initialBalance,
             overallSurvivalRate: r.overallSurvivalRate,
-            passed: r.passed,
-            scenarios: r.scenarios
+            passed: r.passed
           }, null, 2));
           NODE
       - name: Upload stress test result
