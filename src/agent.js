@@ -1,5 +1,5 @@
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -9,6 +9,7 @@ export class NeveraAgent {
     this.learning = learning;
     this.creator = creator;
     this.evaluator = evaluator;
+    this.survival = survival;
   }
 
   async cycle() {
@@ -43,9 +44,13 @@ export class NeveraAgent {
     const candidates = this.market.available()
       .map((opportunity) => ({
         opportunity,
-        evaluation: this.evaluator(opportunity, state.economy.balance)
+        evaluation: this.evaluator(opportunity, state.economy.balance),
+        survival: this.survival.assess(
+          state.economy.balance,
+          opportunity
+        )
       }))
-      .filter((item) => item.evaluation.viable);
+      .filter((item) => item.evaluation.viable && item.survival.allowed);
 
     const choice = this.strategy(
       candidates.map((item) => item.opportunity),
@@ -54,8 +59,11 @@ export class NeveraAgent {
     );
 
     if (!choice) {
-      const result = { status: "NO_VIABLE_OPPORTUNITY" };
-      this.nevera.log("MARKET_RESULT", result);
+      const result = {
+        status: "NO_ACTION",
+        reason: "PROTECT_CAPITAL"
+      };
+      this.nevera.log("CAPITAL_DECISION", result);
       return {
         decision,
         createdOpportunity: created,
@@ -65,14 +73,15 @@ export class NeveraAgent {
       };
     }
 
-    const selectedEvaluation = candidates.find(
+    const selected = candidates.find(
       (item) => item.opportunity.name === choice.opportunity.name
-    )?.evaluation;
+    );
 
     this.nevera.log("CAPITAL_DECISION", {
       selected: choice.opportunity.name,
       score: choice.score,
-      evaluation: selectedEvaluation
+      evaluation: selected.evaluation,
+      survival: selected.survival
     });
 
     const research = await this.tools.execute("research_opportunity", {
@@ -106,7 +115,8 @@ export class NeveraAgent {
       candidates,
       opportunity: choice.opportunity,
       score: choice.score,
-      selectedEvaluation,
+      selectedEvaluation: selected.evaluation,
+      survival: selected.survival,
       action: {
         tool: "research_opportunity",
         research,
