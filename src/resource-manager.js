@@ -14,24 +14,29 @@ export class ResourceManager {
   }
 
   canReserve(resources = []) {
-    return resources.every((resource) => this.available(resource));
+    const needed = {};
+    for (const resource of resources) needed[resource] = (needed[resource] ?? 0) + 1;
+    return Object.entries(needed).every(
+      ([resource, amount]) => (this.resources[resource] ?? 0) >= amount
+    );
   }
 
   reserve(resources = []) {
     if (!this.canReserve(resources)) return false;
-    for (const resource of resources) {
-      this.resources[resource] -= 1;
-    }
+    for (const resource of resources) this.resources[resource] -= 1;
     return true;
+  }
+
+  reserveBatch(resourceGroups = []) {
+    const flattened = resourceGroups.flatMap((group) => group ?? []);
+    if (!this.canReserve(flattened)) return false;
+    return this.reserve(flattened);
   }
 
   replenish(resource, amount = 1) {
     if (amount < 0) throw new Error("amount must be non-negative");
     const max = this.capacity[resource] ?? Number.POSITIVE_INFINITY;
-    this.resources[resource] = Math.min(
-      max,
-      (this.resources[resource] ?? 0) + amount
-    );
+    this.resources[resource] = Math.min(max, (this.resources[resource] ?? 0) + amount);
   }
 
   beginCycle() {
