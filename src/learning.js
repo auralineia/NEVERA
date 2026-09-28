@@ -25,6 +25,11 @@ export class Learning {
       competition: opportunity.competition ?? opportunity.marketContext?.competition ?? 1,
       status: outcome.status,
       net: outcome.net,
+      cost: outcome.cost ?? 0,
+      revenue: outcome.revenue ?? 0,
+      risk: opportunity.risk ?? 0,
+      effort: opportunity.effort ?? 0,
+      strategy: opportunity.strategy ?? null,
       timestamp: new Date().toISOString()
     });
   }
@@ -176,6 +181,29 @@ export class Learning {
     return [...new Set(this.results.map((item) => item.category))].map((category) =>
       this.categoryStats(category)
     );
+  }
+
+  attribution({ category = null, strategy = null } = {}) {
+    const results = this.results.filter((item) =>
+      (!category || item.category === category) &&
+      (!strategy || item.strategy === strategy)
+    );
+    const attempts = results.length;
+    const successes = results.filter((item) => item.status === "SUCCESS").length;
+    const net = results.reduce((sum, item) => sum + (item.net ?? 0), 0);
+
+    return {
+      category,
+      strategy,
+      attempts,
+      successRate: attempts ? Number((successes / attempts).toFixed(4)) : 0,
+      averageNet: attempts ? Number((net / attempts).toFixed(2)) : 0,
+      net: Number(net.toFixed(2))
+    };
+  }
+
+  compareStrategies(strategies = []) {
+    return strategies.map((strategy) => this.attribution({ strategy }));
   }
 
   export() {
