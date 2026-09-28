@@ -23,6 +23,8 @@ import { RealSandbox } from "./real-sandbox.js";
 import { OpportunityDiscovery } from "./opportunity-discovery.js";
 import { TaskExecutor } from "./task-executor.js";
 import { Telemetry } from "./telemetry.js";
+import { Runtime } from "./runtime.js";
+import { translatePublicSignals } from "./public-opportunities.js";
 
 
 const persistence = new Persistence();
@@ -58,6 +60,7 @@ const discovery = new OpportunityDiscovery({
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
+const runtime = new Runtime();
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
@@ -97,9 +100,11 @@ const cycleDelayMs = Math.max(0, Number(process.env.NEVERA_CYCLE_DELAY_MS ?? 0))
 
 for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD"; offset += 1) {
   const cycle = startCycle + offset;
+  runtime.cycleStarted(cycle);
   telemetry.record("CYCLE_START", { cycle });
   const publicSources = await discovery.scan();
-  telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length });
+  const publicOpportunities = translatePublicSignals(publicSources);
+  telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
   const strategy = portfolio.choose(cycle);
   agent.experimentEvidence = experiments.recent(20)
@@ -191,6 +196,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     sandbox: realSandbox.snapshot(),
     taskExecutor: taskExecutor.snapshot(),
     telemetry: telemetry.snapshot(),
+    runtime: runtime.snapshot(),
+    publicOpportunities,
     lastResult: result
   });
 
@@ -227,5 +234,6 @@ console.log(JSON.stringify({
   guardrails: guardrails.snapshot(),
   sandbox: realSandbox.snapshot(),
   telemetry: telemetry.snapshot(),
+  runtime: runtime.snapshot(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
