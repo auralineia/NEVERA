@@ -52,6 +52,7 @@ import { RevenueEngine } from "./revenue-engine.js";
 import { PaymentAdapter } from "./payment-adapter.js";
 import { createServer } from "node:http";
 import { configuredGlobalSources } from "./global-opportunity-sources.js";
+import { DeliverableEngine } from "./deliverable-engine.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -92,6 +93,12 @@ const discovery = new OpportunityDiscovery({
   }))
 });
 const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
+const deliverableEngine = new DeliverableEngine({
+  sandbox: realSandbox,
+  baseDir: process.env.NEVERA_DELIVERABLE_DIR ?? "/data/nevera-deliverables"
+});
+const savedDeliverables = Array.isArray(saved?.deliverables) ? saved.deliverables : [];
+deliverableEngine.history.push(...savedDeliverables);
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 guardrails.cooldownRemaining = Number(saved?.guardrails?.cooldownRemaining ?? 0);
 guardrails.peakBalance = Number(saved?.guardrails?.peakBalance ?? saved?.balance ?? initialBalance);
@@ -141,6 +148,28 @@ const paymentWebhookServer = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/payment-status") {
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(paymentAdapter.status()));
+    return;
+  }
+
+  if (req.method === "GET" && req.url.startsWith("/payment/success")) {
+    const paymentId = new URL(req.url, "http://nevera.local").searchParams.get("payment_id");
+    const payment = revenueEngine.paymentIntents.find((item) => item.id === paymentId);
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+    res.end("<html><body><h1>Pagamento recebido</h1><p>O pagamento foi confirmado pelo provedor. A NEVERA está preparando sua entrega.</p><p>Status: " +
+      String(payment?.fulfillmentStatus ?? "PROCESSANDO") + "</p></body></html>");
+    return;
+  }
+
+  if (req.method === "GET" && req.url.startsWith("/deliverables/")) {
+    const id = decodeURIComponent(req.url.slice("/deliverables/".length).split("?")[0]);
+    const item = deliverableEngine.history.find((entry) => entry.id === id);
+    if (!item) {
+      res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "DELIVERABLE_NOT_FOUND" })); return;
+    }
+    const { readFile } = await import("node:fs/promises");
+    const content = await readFile(item.filePath, "utf8");
+    res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", "cache-control": "no-store" });
+    res.end(content);
     return;
   }
 
@@ -211,8 +240,16 @@ const paymentWebhookServer = createServer(async (req, res) => {
       return;
     }
     const confirmed = revenueEngine.confirmPayment(event.paymentId, { gross: event.gross, fees: event.fees });
+    const offer = revenueEngine.offers.find((item) => item.id === confirmed.offerId);
+    let fulfillment = null;
+    if (offer?.opportunity) {
+      fulfillment = await deliverableEngine.fulfill(offer.opportunity);
+      confirmed.fulfillmentId = fulfillment.id;
+      confirmed.fulfillmentStatus = fulfillment.status;
+    }
     const state = (await persistence.load()) ?? {};
     state.revenueEngine = revenueEngine.snapshot();
+    state.deliverables = deliverableEngine.snapshot();
     await persistence.save(state);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, paymentId: confirmed.id, status: confirmed.status }));
@@ -498,6 +535,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     guardrails: guardrails.snapshot(),
     sandbox: realSandbox.snapshot(),
     taskExecutor: taskExecutor.snapshot(),
+    deliverables: deliverableEngine.snapshot(),
     telemetry: telemetry.snapshot(),
     runtime: runtime.snapshot(),
     publicOpportunities,
