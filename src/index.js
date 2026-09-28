@@ -14,6 +14,7 @@ import { StrategyPortfolio } from "./strategies.js";
 import { calculateMetrics } from "./metrics.js";
 import { DecisionLedger } from "./decision-ledger.js";
 import { ExperimentManager } from "./experiments.js";
+import { HypothesisEngine } from "./hypotheses.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -29,6 +30,7 @@ const survival = new SurvivalManager();
 const portfolio = new StrategyPortfolio(undefined, 3, saved?.strategies ?? []);
 const ledger = new DecisionLedger(saved?.decisions ?? []);
 const experiments = new ExperimentManager(saved?.experiments ?? []);
+const hypothesisEngine = new HypothesisEngine();
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -53,7 +55,11 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
   const strategy = portfolio.choose(cycle);
   const experiment = experiments.start({
     cycle,
-    hypothesis: `A estratégia ${strategy.name} pode gerar resultado líquido positivo mantendo o capital dentro dos limites de sobrevivência`,
+    hypothesis: hypothesisEngine.generate({
+      strategy,
+      strategyStats: portfolio.stats(),
+      experimentStats: experiments.stats()
+    }),
     strategy: strategy.name
   });
   const result = await agent.cycle(strategy);
