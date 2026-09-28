@@ -4,7 +4,7 @@ export class ExecutionEngine {
   constructor({ capabilities = ["RESEARCH", "SERVICE", "PRODUCT", "EMERGING"], maxSteps = 8, resources = null } = {}) {
     this.capabilities = new Set(capabilities);
     this.maxSteps = maxSteps;
-    this.resourceManager = resources ?? new ResourceManager();
+    this.resourceManager = resources instanceof ResourceManager ? resources : new ResourceManager(resources ?? undefined);
   }
 
   plan(opportunity) {
