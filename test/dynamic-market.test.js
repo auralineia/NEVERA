@@ -45,3 +45,15 @@ test("demanda se recupera gradualmente", () => {
   assert.equal(market.hasDemand(opportunity), true);
   assert.ok(market.state().demandPool.SERVICE >= 1);
 });
+
+test("reserva de demanda pode ser liberada após falha", () => {
+  const market = new DynamicMarket(10);
+  const opportunity = { name: "Serviço", category: "SERVICE", estimatedRevenue: 10, estimatedCost: 2 };
+
+  const before = market.state().demandPool.SERVICE;
+  assert.equal(market.reserve(opportunity), true);
+  assert.equal(market.state().demandPool.SERVICE, before - 1);
+
+  assert.equal(market.release(opportunity), true);
+  assert.equal(market.state().demandPool.SERVICE, before);
+});
