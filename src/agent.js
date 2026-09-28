@@ -237,6 +237,7 @@ export class NeveraAgent {
 
       item.choice.opportunity.status = "CLOSED";
       item.choice.opportunity.estimatedRevenue = opportunity.estimatedRevenue;
+      item.choice.opportunity.strategy = strategyProfile?.name ?? null;
       this.learning.record(item.choice.opportunity, outcome);
 
       results[resultIndex] = {
@@ -282,6 +283,7 @@ export class NeveraAgent {
     if (outcome.cost > 0) this.nevera.spend(outcome.cost, `executed: ${opportunity.name}`);
     if (outcome.revenue > 0 && outcome.status === "SUCCESS") this.nevera.earn(outcome.revenue, `delivered: ${opportunity.name}`);
     opportunity.status = "CLOSED";
+    opportunity.strategy = strategyProfile?.name ?? null;
     this.learning.record(opportunity, outcome);
 
     return {
