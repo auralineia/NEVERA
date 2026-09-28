@@ -1,24 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { simulateOutcome } from "../src/simulator.js";
+import { createSeededRandom, simulateOutcome } from "../src/simulator.js";
 
-test("oportunidade de baixo risco pode gerar receita simulada", () => {
-  const outcome = simulateOutcome({
+test("simulação probabilística é reproduzível com seed", () => {
+  const randomA = createSeededRandom(123);
+  const randomB = createSeededRandom(123);
+
+  const opportunity = {
     estimatedRevenue: 8,
     estimatedCost: 1,
     risk: 0.15
-  });
+  };
 
-  assert.equal(outcome.status, "SUCCESS");
-  assert.equal(outcome.net, 7);
+  assert.deepEqual(
+    simulateOutcome(opportunity, randomA),
+    simulateOutcome(opportunity, randomB)
+  );
 });
 
-test("oportunidade de alto risco pode falhar na simulação", () => {
-  const outcome = simulateOutcome({
-    estimatedRevenue: 15,
-    estimatedCost: 3,
-    risk: 0.8
-  });
+test("probabilidade de sucesso respeita o risco", () => {
+  const success = simulateOutcome(
+    { estimatedRevenue: 8, estimatedCost: 1, risk: 0.15 },
+    () => 0.10
+  );
+  const failure = simulateOutcome(
+    { estimatedRevenue: 8, estimatedCost: 1, risk: 0.15 },
+    () => 0.90
+  );
+
+  assert.equal(success.status, "SUCCESS");
+  assert.equal(failure.status, "FAILURE");
+  assert.equal(failure.net, -1);
+});
+
+test("falha consome o custo mesmo sem receita", () => {
+  const outcome = simulateOutcome(
+    { estimatedRevenue: 15, estimatedCost: 3, risk: 0.8 },
+    () => 0.99
+  );
 
   assert.equal(outcome.status, "FAILURE");
   assert.equal(outcome.net, -3);
