@@ -10,8 +10,9 @@ export class ThroughputController {
     const attempted = outcomes.length;
     const successRate = attempted ? successful / attempted : 0;
     const net = outcomes.reduce((sum, item) => sum + (item?.net ?? 0), 0);
+    const backlog = queueSize > this.current;
 
-    if (queueSize > this.current && successRate >= 0.6) {
+    if (backlog && successRate >= 0.6) {
       this.current = Math.min(this.max, this.current + 1);
     } else if (attempted >= 2 && successRate >= 0.8 && net > 0 && balance > initialBalance) {
       this.current = Math.min(this.max, this.current + 1);
@@ -24,7 +25,7 @@ export class ThroughputController {
       successRate: Number(successRate.toFixed(4)),
       net: Number(net.toFixed(2)),
       reason:
-        queueSize > this.current ? "QUEUE_BACKLOG" :
+        backlog && successRate >= 0.6 ? "QUEUE_BACKLOG" :
         attempted < 2 ? "INSUFFICIENT_EVIDENCE" :
         successRate >= 0.8 && net > 0 && balance > initialBalance ? "INCREASE_THROUGHPUT" :
         successRate < 0.5 || net < 0 ? "DECREASE_THROUGHPUT" :
