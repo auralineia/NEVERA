@@ -1,6 +1,9 @@
 export class ProductionQueue {
   constructor(priorityScorer = null) {
     this.items = [];
+    this.completed = 0;
+    this.failed = 0;
+    this.requeued = 0;
     this.priorityScorer = priorityScorer;
   }
 
@@ -46,7 +49,25 @@ export class ProductionQueue {
   }
 
   requeue(items = []) {
+    this.requeued += items.length;
     this.enqueue(items);
+  }
+
+  recordResult(result) {
+    if (result?.action?.outcome?.status === "SUCCESS") this.completed += 1;
+    else if (result?.action?.outcome || result?.result?.status === "NO_ACTION") this.failed += 1;
+  }
+
+  stats() {
+    return {
+      queued: this.items.length,
+      completed: this.completed,
+      failed: this.failed,
+      requeued: this.requeued,
+      throughput: this.completed + this.failed
+        ? Number((this.completed / (this.completed + this.failed)).toFixed(4))
+        : 0
+    };
   }
 
   size() {
