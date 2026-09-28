@@ -31,6 +31,8 @@ import { taskToExecution } from "./task-planner.js";
 import { OpportunityEngine } from "./opportunity-engine.js";
 import { defaultOpportunitySources, normalizeSources } from "./opportunity-sources.js";
 import { opportunityMetrics } from "./opportunity-metrics.js";
+import { EconomicMemory } from "./economic-memory.js";
+import { simulateEconomicOutcome } from "./economic-simulator.js";
 
 
 const persistence = new Persistence();
@@ -73,7 +75,8 @@ guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10 });
+const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory });
 const opportunitySources = normalizeSources(defaultOpportunitySources());
 
 const dynamicMarket = new DynamicMarket(
@@ -167,6 +170,11 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     .map((item) => item.action?.outcome)
     .filter(Boolean);
 
+  for (const item of opportunityBatch) {
+    const economicOutcome = simulateEconomicOutcome(item.opportunity);
+    economicMemory.record(item.opportunity, economicOutcome);
+  }
+
   for (const outcome of outcomes) {
     portfolio.record(strategy, outcome);
     const learningItem = learning.results.at(-1);
@@ -237,6 +245,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     publicTasks,
     opportunityStats,
     opportunityQueue: opportunityEngine.snapshot(),
+  economicMemory: economicMemory.export(),
+    economicMemory: economicMemory.export(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
     lastResult: result
