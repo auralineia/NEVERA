@@ -123,20 +123,48 @@ export async function runBacktestBatch({
 } = {}) {
   const results = [];
   const width = Math.max(1, Math.min(runs, Math.floor(Number(concurrency) || 1)));
-  for (let start = 0; start < runs; start += width) {
-    const batch = Array.from(
-      { length: Math.min(width, runs - start) },
-      (_, offset) => runBacktest({
-        initialBalance,
-        cycles,
-        seed: seed + start + offset,
-        marketFactory,
-        simulatorFactory,
-        dynamicMarketFactory,
-        executionEngineFactory
-      })
-    );
-    results.push(...await Promise.all(batch));
+  const canUseWorkers = !simulatorFactory && !dynamicMarketFactory && !executionEngineFactory && !marketFactory;
+
+  if (canUseWorkers) {
+    const { Worker } = await import("node:worker_threads");
+    const runWorker = (runSeed) => new Promise((resolve, reject) => {
+      const worker = new Worker(new URL("../scripts/backtest-worker.js", import.meta.url), {
+        workerData: { initialBalance, cycles, seed: runSeed }
+      });
+      worker.once("message", (message) => {
+        worker.terminate();
+        if (message?.ok) resolve(message.result);
+        else reject(new Error(message?.error ?? "BACKTEST_WORKER_FAILED"));
+      });
+      worker.once("error", (error) => {
+        worker.terminate();
+        reject(error);
+      });
+    });
+
+    for (let start = 0; start < runs; start += width) {
+      const batch = Array.from(
+        { length: Math.min(width, runs - start) },
+        (_, offset) => runWorker(seed + start + offset)
+      );
+      results.push(...await Promise.all(batch));
+    }
+  } else {
+    for (let start = 0; start < runs; start += width) {
+      const batch = Array.from(
+        { length: Math.min(width, runs - start) },
+        (_, offset) => runBacktest({
+          initialBalance,
+          cycles,
+          seed: seed + start + offset,
+          marketFactory,
+          simulatorFactory,
+          dynamicMarketFactory,
+          executionEngineFactory
+        })
+      );
+      results.push(...await Promise.all(batch));
+    }
   }
 
   const finalBalances = results.map((item) => item.finalBalance);
