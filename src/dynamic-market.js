@@ -63,6 +63,9 @@ export class DynamicMarket {
         const priceFactor = Number(
           Math.max(0.65, Math.min(1.35, demand / Math.max(0.5, competition))).toFixed(3)
         );
+        const costFactor = Number(
+          Math.max(0.8, Math.min(1.5, 0.9 + competition * 0.25 + (1 - demand) * 0.2)).toFixed(3)
+        );
 
         return {
           ...opportunity,
@@ -70,6 +73,7 @@ export class DynamicMarket {
           competition,
           demandUnits: availableDemand,
           estimatedRevenue: Number((opportunity.estimatedRevenue * priceFactor).toFixed(2)),
+          estimatedCost: Number((opportunity.estimatedCost * costFactor).toFixed(2)),
           marketTick: this.tick
         };
       });
