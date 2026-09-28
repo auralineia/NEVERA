@@ -120,6 +120,10 @@ export class NeveraAgent {
         demandAvailable: this.dynamicMarket ? this.dynamicMarket.hasDemand(opportunity) : true
       }))
       .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable)
+      .filter((item) => {
+        const stats = this.learning?.categoryStats?.(item.opportunity.category);
+        return !(stats?.attempts >= 3 && stats.successRate < 0.3);
+      })
       .filter((item) => !this.guardrails || this.guardrails.allow(
         state.economy.balance,
         item.opportunity
