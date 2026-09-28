@@ -141,6 +141,11 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true, ignored: event.status }));
       return;
     }
+    if (!event.paymentId) {
+      res.writeHead(202, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ignored: "NO_NEVERA_PAYMENT_ID", eventType: event.eventType }));
+      return;
+    }
     const confirmed = revenueEngine.confirmPayment(event.paymentId, { gross: event.gross, fees: event.fees });
     const state = (await persistence.load()) ?? {};
     state.revenueEngine = revenueEngine.snapshot();
