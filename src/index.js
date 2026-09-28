@@ -160,7 +160,8 @@ const finalMetrics = calculateMetrics({
   initialBalance,
   currentBalance: nevera.snapshot().economy.balance,
   learning,
-  strategies: portfolio.stats()
+  strategies: portfolio.stats(),
+  production: agent.productionQueue.stats()
 });
 
 console.log(JSON.stringify({
