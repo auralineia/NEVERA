@@ -54,14 +54,19 @@ export async function runBacktest({
   let explorationInterval = 3;
   let cyclesWithOutcome = 0;
   let cyclesExecuted = 0;
-  const balanceHistory = [initialBalance];
+  let currentBalance = initialBalance;
+  let peakBalance = initialBalance;
+  let maxDrawdownValue = 0;
 
   for (let cycle = 1; cycle <= cycles && nevera.snapshot().status !== "DEAD"; cycle += 1) {
     cyclesExecuted += 1;
     portfolio.explorationInterval = explorationInterval;
     const strategy = portfolio.choose(cycle);
     const result = await agent.cycle(strategy);
-    balanceHistory.push(nevera.snapshot().economy.balance);
+    currentBalance = nevera.snapshot().economy.balance;
+    peakBalance = Math.max(peakBalance, currentBalance);
+    const drawdown = peakBalance > 0 ? (peakBalance - currentBalance) / peakBalance : 0;
+    maxDrawdownValue = Math.max(maxDrawdownValue, drawdown);
 
     const actualOutcomes = (result.actions ?? []).map((item) => item.action?.outcome).filter(Boolean);
     if (actualOutcomes.length) {
@@ -77,10 +82,9 @@ export async function runBacktest({
     explorationInterval = next.explorationInterval;
   }
 
-  const finalBalance = nevera.snapshot().economy.balance;
+  const finalBalance = currentBalance;
   const stats = learning.stats();
-  const peak = Math.max(...balanceHistory);
-  const maxDrawdown = peak > 0 ? Number((Math.max(...balanceHistory.map((value) => (peak - value) / peak))).toFixed(4)) : 0;
+  const maxDrawdown = Number(maxDrawdownValue.toFixed(4));
   const nets = learning.results.map((item) => Number(item.net ?? 0));
   const meanNet = nets.length ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
   const variance = nets.length ? nets.reduce((sum, value) => sum + (value - meanNet) ** 2, 0) / nets.length : 0;
