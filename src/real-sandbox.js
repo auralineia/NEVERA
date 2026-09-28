@@ -28,15 +28,22 @@ export class RealSandbox {
         headers: { "user-agent": "NEVERA-Sandbox/0.1" }
       });
       const body = await response.text();
+      let data = null;
+      const contentType = String(response.headers.get("content-type") ?? "").toLowerCase();
+      if (contentType.includes("json") || body.trim().startsWith("[") || body.trim().startsWith("{")) {
+        try { data = JSON.parse(body); } catch {}
+      }
       const result = {
         type: "PUBLIC_FETCH",
         url,
         status: response.status,
         ok: response.ok,
         bytes: Buffer.byteLength(body),
-        preview: body.slice(0, 500)
+        preview: body.slice(0, 500),
+        contentType,
+        data
       };
-      this.actions.push({ ...result, timestamp: new Date().toISOString() });
+      this.actions.push({ ...result, data: undefined, timestamp: new Date().toISOString() });
       return result;
     } finally {
       clearTimeout(timer);
