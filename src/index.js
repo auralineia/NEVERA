@@ -25,7 +25,7 @@ const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
 const creator = new OpportunityCreator();
 const survival = new SurvivalManager();
-const portfolio = new StrategyPortfolio();
+const portfolio = new StrategyPortfolio(undefined, 3, saved?.strategies ?? []);
 const ledger = new DecisionLedger(saved?.decisions ?? []);
 
 nevera.boot();
