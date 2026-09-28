@@ -1,12 +1,16 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, rename } from "node:fs/promises";
 
 export class Persistence {
   constructor(filePath = "./nevera-state.json") {
     this.filePath = filePath;
+    this.tempPath = `${filePath}.tmp`;
   }
 
   async save(state) {
-    await writeFile(this.filePath, JSON.stringify(state, null, 2), "utf8");
+    const payload = JSON.stringify(state, null, 2);
+    await writeFile(this.tempPath, payload, "utf8");
+    await rename(this.tempPath, this.filePath);
+    return true;
   }
 
   async load() {
