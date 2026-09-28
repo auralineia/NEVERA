@@ -2,9 +2,9 @@ import { readFile, writeFile, rename, copyFile } from "node:fs/promises";
 
 export class Persistence {
   constructor(filePath = "./nevera-state.json") {
-    this.filePath = filePath;
-    this.tempPath = filePath + ".tmp";
-    this.backupPath = filePath + ".bak";
+    this.filePath = String(filePath).trim();
+    this.tempPath = this.filePath + ".tmp";
+    this.backupPath = this.filePath + ".bak";
   }
 
   #validate(state) {
