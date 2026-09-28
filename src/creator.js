@@ -73,6 +73,12 @@ export class OpportunityCreator {
     let cost = 1;
     let risk = 0.15;
     let effort = 1;
+    const strategyEvidence = typeof learning.compareStrategies === "function"
+      ? learning.compareStrategies(["CONSERVATIVE", "BALANCED", "EXPLORATORY"])
+      : [];
+    const strongestStrategy = strategyEvidence
+      .filter((item) => item.attempts >= 3)
+      .sort((a, b) => b.averageNet - a.averageNet)[0]?.strategy ?? null;
 
     if (strongestCategory === "SERVICE" && demand > 0.95) {
       category = "SERVICE";
@@ -119,6 +125,7 @@ export class OpportunityCreator {
       risk,
       effort,
       source: "NEVERA_DISCOVERY",
+      strategyHint: strongestStrategy,
       marketContext: {
         demand,
         competition
