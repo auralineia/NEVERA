@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ExecutionEngine } from "../src/execution-engine.js";
+import { ResourceManager } from "../src/resource-manager.js";
 
 test("engine planeja uma tarefa suportada", () => {
   const engine = new ExecutionEngine();
@@ -55,12 +56,12 @@ test("engine respeita limite de etapas", () => {
 
 test("engine rejeita execução quando o recurso acabou", async () => {
   const engine = new ExecutionEngine({
-    resources: {
+    resources: new ResourceManager({
       simulated_research_engine: 0,
       simulated_automation_engine: 1,
       simulated_product_builder: 0,
       simulated_general_executor: 0
-    }
+    })
   });
 
   const first = await engine.execute({
