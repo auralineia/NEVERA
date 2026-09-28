@@ -4,7 +4,7 @@ export function validateExecution({ opportunity, execution, outcome }) {
     hasDeliverable: Boolean(execution?.deliverable?.content),
     categoryMatches: execution?.category === opportunity?.category,
     costMatches: Number(execution?.actualCost ?? 0) === Number(opportunity?.estimatedCost ?? 0),
-    outcomeValid: outcome?.status === "SUCCESS" || outcome?.status === "FAILURE",
+    outcomeValid: outcome?.status === "SUCCESS" || outcome?.status === "FAILURE" || outcome?.status === "PENDING_PAYMENT",
     outcomeCostMatches: Number(outcome?.cost ?? 0) === Number(execution?.actualCost ?? 0),
     nonNegativeCost: Number(execution?.actualCost ?? 0) >= 0
   };
