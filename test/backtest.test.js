@@ -101,8 +101,8 @@ test("backtest aceita simulador adversarial injetado", async () => {
     simulatorFactory: () => () => ({
       status: "FAILURE",
       revenue: 0,
-      cost: 1.5,
-      net: -1.5
+      cost: opportunity.estimatedCost,
+      net: Number((-opportunity.estimatedCost).toFixed(2))
     })
   });
 
