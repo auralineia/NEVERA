@@ -1,5 +1,5 @@
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -8,6 +8,7 @@ export class NeveraAgent {
     this.simulator = simulator;
     this.learning = learning;
     this.creator = creator;
+    this.evaluator = evaluator;
   }
 
   async cycle() {
@@ -21,6 +22,31 @@ export class NeveraAgent {
     }
 
     const created = this.creator.createFromMemory(this.learning);
+    const evaluation = this.evaluator(
+      created,
+      state.economy.balance
+    );
+
+    this.nevera.log("OPPORTUNITY_EVALUATED", {
+      opportunity: created,
+      evaluation
+    });
+
+    if (!evaluation.viable) {
+      this.brain.remember(created.name, {
+        status: "REJECTED",
+        reason: "LOW_VIABILITY",
+        evaluation
+      });
+
+      return {
+        decision,
+        createdOpportunity: created,
+        evaluation,
+        action: "REJECT"
+      };
+    }
+
     this.market.add(created);
     this.nevera.log("OPPORTUNITY_CREATED", created);
 
@@ -63,6 +89,7 @@ export class NeveraAgent {
     return {
       decision,
       createdOpportunity: created,
+      evaluation,
       opportunity: choice.opportunity,
       score: choice.score,
       action: {
