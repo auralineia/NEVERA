@@ -6,12 +6,14 @@ import { defaultMarket } from "./market.js";
 import { chooseOpportunity } from "./strategy.js";
 import { simulateOutcome } from "./simulator.js";
 import { Learning } from "./learning.js";
+import { OpportunityCreator } from "./creator.js";
 
 const nevera = new Nevera({ initialBalance: 10 });
 const brain = new Brain();
 const tools = createSimulationTools();
 const market = defaultMarket();
 const learning = new Learning();
+const creator = new OpportunityCreator();
 
 const agent = new NeveraAgent(
   nevera,
@@ -20,7 +22,8 @@ const agent = new NeveraAgent(
   chooseOpportunity,
   market,
   simulateOutcome,
-  learning
+  learning,
+  creator
 );
 
 nevera.boot();
