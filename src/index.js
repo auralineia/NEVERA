@@ -42,6 +42,8 @@ import { DecisionMemory } from "./decision-memory.js";
 import { ActionBudget } from "./action-budget.js";
 import { CycleController } from "./cycle-controller.js";
 import { LongTermMemory } from "./long-term-memory.js";
+import { metaLearn } from "./meta-learning.js";
+import { DecisionFilter } from "./decision-filter.js";
 
 
 const persistence = new Persistence();
@@ -88,6 +90,7 @@ const decisionMemory = new DecisionMemory(saved?.decisionMemory ?? []);
 const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.env.NEVERA_MAX_CYCLE_COST ?? 1) });
 const cycleController = new CycleController();
 const longTermMemory = new LongTermMemory(saved?.longTermMemory ?? []);
+const decisionFilter = new DecisionFilter();
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
@@ -137,6 +140,9 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
   const opportunityBatch = opportunityEngine.discover(publicOpportunities, nevera.snapshot().economy.balance);
+  for (const item of opportunityBatch) {
+    if (decisionFilter.repeatedFailure(item.opportunity, failureMemory)) decisionFilter.reject(item.opportunity, "REPEATED_CATEGORY_FAILURE");
+  }
   const portfolioSelection = buildPortfolio(opportunityBatch.map((item) => item.opportunity), { maxItems: 3 });
   const publicTasks = planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
@@ -151,7 +157,9 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   }
   telemetry.record("PUBLIC_SCAN", { cycle, sources: publicSources.length, opportunities: publicOpportunities.length });
   portfolio.explorationInterval = explorationInterval;
+  const meta = metaLearn({ strategies: portfolio.stats(), experiments: experiments.recent(20), failures: learning.stats().failures ?? 0 });
   const strategy = portfolio.choose(cycle);
+  longTermMemory.remember("META_LEARNING", meta);
   const cycleDecision = cycleController.decide({
     balance: nevera.snapshot().economy.balance,
     drawdown: initialBalance > 0 ? 1 - nevera.snapshot().economy.balance / initialBalance : 1,
@@ -298,6 +306,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     decisionMemory: decisionMemory.export(),
     longTermMemory: longTermMemory.export(),
     cycleController: cycleController.snapshot(),
+    decisionFilter: decisionFilter.recent(),
     objective: objectiveManager.snapshot(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
