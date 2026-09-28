@@ -30,3 +30,19 @@ O primeiro teste financeiro, quando a infraestrutura estiver validada, terá or�
 ## Status
 
 Base inicial criada. Próximo passo: preparar a estrutura de execução do Automaton sem colocar nenhum segredo no GitHub.
+
+
+## Real Sandbox
+
+A primeira ponte com o mundo real é deliberadamente sem dinheiro:
+- somente requisições HTTPS;
+- domínios permitidos explicitamente;
+- nenhum pagamento;
+- nenhuma carteira;
+- nenhuma credencial;
+- limite de custo por operação;
+- reserva mínima de sobrevivência;
+- limite de perdas;
+- kill switch via `NEVERA_KILL_SWITCH=1`.
+
+Execute com `npm run sandbox`.
