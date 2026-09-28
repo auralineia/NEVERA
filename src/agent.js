@@ -186,6 +186,7 @@ export class NeveraAgent {
     });
 
     if (!executionPlan.supported) {
+      this.dynamicMarket?.release(choice.opportunity);
       const result = {
         status: "NO_ACTION",
         reason: "EXECUTION_CAPABILITY_UNAVAILABLE",
@@ -212,6 +213,7 @@ export class NeveraAgent {
     const execution = await this.executionEngine.execute(executionOpportunity);
 
     if (execution.status !== "SUCCESS") {
+      this.dynamicMarket?.release(choice.opportunity);
       const result = {
         status: "NO_ACTION",
         reason: "EXECUTION_FAILED",
@@ -245,6 +247,7 @@ export class NeveraAgent {
     this.nevera.log("QUALITY_GATE", quality);
 
     if (!quality.passed) {
+      this.dynamicMarket?.release(choice.opportunity);
       const result = {
         status: "NO_ACTION",
         reason: "QUALITY_GATE_FAILED",
