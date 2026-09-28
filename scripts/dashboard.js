@@ -124,9 +124,14 @@ createServer(async (req,res)=>{
    const state=JSON.parse(raw);
    res.writeHead(200,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});
    res.end(JSON.stringify(publicState(state)));
-  } catch {
-   res.writeHead(404,{"content-type":"application/json","cache-control":"no-store"});
-   res.end(JSON.stringify({error:"STATE_NOT_AVAILABLE"}));
+  } catch (error) {
+   res.writeHead(500,{"content-type":"application/json","cache-control":"no-store"});
+   res.end(JSON.stringify({
+    error:"STATE_NOT_AVAILABLE",
+    code:error?.code ?? "UNKNOWN",
+    message:error?.message ?? "STATE_READ_FAILED",
+    statePath
+   }));
   }
   return;
  }
