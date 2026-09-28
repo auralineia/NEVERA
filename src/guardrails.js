@@ -25,6 +25,14 @@ export class Guardrails {
     this.losses = 0;
   }
 
+  emergencyStop() {
+    this.killSwitch = true;
+  }
+
+  resume() {
+    this.killSwitch = false;
+  }
+
   snapshot() {
     return {
       reserveRatio: this.reserveRatio,
