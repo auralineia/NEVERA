@@ -25,7 +25,16 @@ export class NeveraAgent {
     let resources = this.executionEngine.beginCycle();
     this.nevera.log("RESOURCE_CYCLE", { resources, maxActions });
 
-    const batch = await this.prepareBatch(strategyProfile, maxActions);
+    let batch = await this.prepareBatch(strategyProfile, maxActions);
+    if (batch.length > 1) {
+      const capitalBatch = this.capitalPolicy.reserveBatch(
+        this.nevera.snapshot().economy.balance,
+        batch.map((item) => item.executionOpportunity ?? item.choice.opportunity)
+      );
+      const allowedNames = new Set(capitalBatch.selected.map((item) => item.name));
+      batch = batch.filter((item) => allowedNames.has(item.choice.opportunity.name));
+      this.nevera.log("CAPITAL_BATCH_RESERVATION", capitalBatch);
+    }
     if (batch.length > 1) {
       const results = await Promise.all(
         batch.map((item) => this.executePrepared(item, strategyProfile))
