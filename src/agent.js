@@ -1,5 +1,5 @@
 export class NeveraAgent {
-  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival) {
+  constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null) {
     this.nevera = nevera;
     this.brain = brain;
     this.tools = tools;
@@ -10,6 +10,7 @@ export class NeveraAgent {
     this.creator = creator;
     this.evaluator = evaluator;
     this.survival = survival;
+    this.dynamicMarket = dynamicMarket;
   }
 
   async cycle(strategyProfile = null) {
@@ -41,7 +42,11 @@ export class NeveraAgent {
       this.nevera.log("OPPORTUNITY_CREATED", created);
     }
 
-    const candidates = this.market.available()
+    const marketOpportunities = this.dynamicMarket
+      ? this.dynamicMarket.evolve(this.market.available())
+      : this.market.available();
+
+    const candidates = marketOpportunities
       .map((opportunity) => ({
         opportunity,
         evaluation: this.evaluator(opportunity, state.economy.balance),
