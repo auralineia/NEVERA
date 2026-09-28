@@ -33,6 +33,8 @@ import { defaultOpportunitySources, normalizeSources } from "./opportunity-sourc
 import { opportunityMetrics } from "./opportunity-metrics.js";
 import { EconomicMemory } from "./economic-memory.js";
 import { simulateEconomicOutcome } from "./economic-simulator.js";
+import { FailureMemory } from "./failure-memory.js";
+import { survivalMetrics } from "./survival-metrics.js";
 
 
 const persistence = new Persistence();
@@ -76,7 +78,8 @@ const telemetry = new Telemetry();
 const runtime = new Runtime();
 const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
-const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory });
+const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
+const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory });
 const opportunitySources = normalizeSources(defaultOpportunitySources());
 
 const dynamicMarket = new DynamicMarket(
@@ -173,6 +176,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   for (const item of opportunityBatch) {
     const economicOutcome = simulateEconomicOutcome(item.opportunity);
     economicMemory.record(item.opportunity, economicOutcome);
+    failureMemory.record(item.opportunity, economicOutcome);
   }
 
   for (const outcome of outcomes) {
@@ -246,7 +250,15 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     opportunityStats,
     opportunityQueue: opportunityEngine.snapshot(),
   economicMemory: economicMemory.export(),
+  failureMemory: failureMemory.export(),
+  survival: survivalMetrics({
+    initialBalance,
+    currentBalance: nevera.snapshot().economy.balance,
+    failures: learning.stats().failures ?? 0,
+    cycles: cycleLimit === Infinity ? 0 : cycleLimit
+  }),
     economicMemory: economicMemory.export(),
+    failureMemory: failureMemory.export(),
     recovery: recovery.snapshot(),
   opportunityQueue: opportunityEngine.snapshot(),
     lastResult: result
