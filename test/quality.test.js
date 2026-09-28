@@ -11,7 +11,7 @@ test("quality gate aceita execução válida", () => {
       actualCost: 2,
       deliverable: { content: "resultado" }
     },
-    outcome: { status: "SUCCESS" }
+    outcome: { status: "SUCCESS", cost: 2 }
   });
   assert.equal(result.passed, true);
   assert.equal(result.qualityScore, 1);
