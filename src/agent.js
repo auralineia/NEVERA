@@ -1,6 +1,7 @@
 import { ExecutionEngine } from "./execution-engine.js";
 import { validateExecution } from "./quality.js";
 import { CapitalPolicy } from "./capital-policy.js";
+import { chooseOpportunities } from "./strategy.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -24,10 +25,18 @@ export class NeveraAgent {
     let resources = this.executionEngine.beginCycle();
     this.nevera.log("RESOURCE_CYCLE", { resources, maxActions });
 
-    for (let index = 0; index < maxActions; index += 1) {
-      const result = await this.cycleOnce(strategyProfile, { resetResources: index > 0 ? false : false });
-      actions.push(result);
-      if (!result.action?.outcome) break;
+    const batch = await this.prepareBatch(strategyProfile, maxActions);
+    if (batch.length > 1) {
+      const results = await Promise.all(
+        batch.map((item) => this.executePrepared(item, strategyProfile))
+      );
+      actions.push(...results);
+    } else {
+      for (let index = 0; index < maxActions; index += 1) {
+        const result = await this.cycleOnce(strategyProfile, { resetResources: false });
+        actions.push(result);
+        if (!result.action?.outcome) break;
+      }
     }
 
     return {
@@ -38,6 +47,80 @@ export class NeveraAgent {
         executed: actions.filter((item) => item.action?.outcome).length,
         outcomes: actions.map((item) => item.action?.outcome ?? null)
       }
+    };
+  }
+
+  async prepareBatch(strategyProfile = null, maxActions = 3) {
+    const state = this.nevera.snapshot();
+    const decision = this.brain.think(state);
+    if (decision.type !== "PROPOSE") return [];
+
+    const marketOpportunities = this.dynamicMarket
+      ? this.dynamicMarket.evolve(this.market.available())
+      : this.market.available();
+
+    const candidates = marketOpportunities
+      .map((opportunity) => ({
+        opportunity,
+        evaluation: this.evaluator(opportunity, state.economy.balance),
+        survival: this.survival.assess(state.economy.balance, opportunity),
+        demandAvailable: this.dynamicMarket ? this.dynamicMarket.hasDemand(opportunity) : true
+      }))
+      .filter((item) => item.evaluation.viable && item.survival.allowed && item.demandAvailable);
+
+    return chooseOpportunities(
+      candidates.map((item) => item.opportunity),
+      state.economy.balance,
+      this.learning,
+      maxActions
+    ).map((choice) => ({
+      choice,
+      candidate: candidates.find((item) => item.opportunity.name === choice.opportunity.name)
+    }));
+  }
+
+  async executePrepared(item, strategyProfile = null) {
+    const opportunity = item.choice.opportunity;
+    const executionOpportunity = strategyProfile ? {
+      ...opportunity,
+      estimatedCost: Number((opportunity.estimatedCost * strategyProfile.riskMultiplier).toFixed(2)),
+      estimatedRevenue: Number((opportunity.estimatedRevenue * strategyProfile.revenueMultiplier).toFixed(2)),
+      risk: Math.min(0.95, Number((opportunity.risk * strategyProfile.riskMultiplier).toFixed(4)))
+    } : opportunity;
+
+    const capitalDecision = this.capitalPolicy.decide(
+      this.nevera.snapshot().economy.balance,
+      executionOpportunity
+    );
+    if (!capitalDecision.allowed) return { result: { status: "NO_ACTION", reason: capitalDecision.reason }, action: { outcome: null } };
+
+    if (this.dynamicMarket && !this.dynamicMarket.consume(opportunity)) {
+      return { result: { status: "NO_ACTION", reason: "MARKET_DEMAND_EXHAUSTED" }, action: { outcome: null } };
+    }
+
+    const execution = await this.executionEngine.execute(executionOpportunity);
+    if (execution.status !== "SUCCESS") {
+      this.dynamicMarket?.release(opportunity);
+      return { result: { status: "NO_ACTION", reason: "EXECUTION_FAILED" }, action: { execution, outcome: null } };
+    }
+
+    const outcome = await this.simulator(executionOpportunity);
+    const quality = validateExecution({ opportunity: executionOpportunity, execution, outcome });
+    if (!quality.passed) {
+      this.dynamicMarket?.release(opportunity);
+      return { result: { status: "NO_ACTION", reason: "QUALITY_GATE_FAILED" }, action: { execution, outcome: null } };
+    }
+
+    if (outcome.cost > 0) this.nevera.spend(outcome.cost, `executed: ${opportunity.name}`);
+    if (outcome.revenue > 0 && outcome.status === "SUCCESS") this.nevera.earn(outcome.revenue, `delivered: ${opportunity.name}`);
+    opportunity.status = "CLOSED";
+    this.learning.record(opportunity, outcome);
+
+    return {
+      opportunity,
+      score: item.choice.score,
+      result: { status: "EXECUTED" },
+      action: { execution, outcome }
     };
   }
 
