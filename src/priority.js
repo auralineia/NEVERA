@@ -39,6 +39,12 @@ export function calculateProductionPriority(item, learning = null, weights = DEF
   const patternSignal = pattern?.attempts >= 3
     ? clamp((pattern.successRate - 0.5) + pattern.averageNet / 10, -1, 1)
     : 0;
+  const regime = learning?.regime?.(opportunity.category);
+  const regimePenalty = regime?.regime === "SHIFTED"
+    ? -0.75
+    : regime?.regime === "TRANSITION"
+      ? -0.35
+      : 0;
 
   return Number((
     baseScore * weights.base +
@@ -46,7 +52,8 @@ export function calculateProductionPriority(item, learning = null, weights = DEF
     successProbability * weights.successProbability +
     demandSignal * weights.demand +
     historySignal * weights.history +
-    patternSignal * weights.history
+    patternSignal * weights.history +
+    regimePenalty * weights.history
   ).toFixed(4));
 }
 
