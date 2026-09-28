@@ -9,6 +9,7 @@ import { Learning } from "./learning.js";
 import { OpportunityCreator } from "./creator.js";
 import { evaluateOpportunity } from "./evaluator.js";
 import { Persistence } from "./persistence.js";
+import { SurvivalManager } from "./survival.js";
 
 const persistence = new Persistence();
 const saved = await persistence.load();
@@ -19,6 +20,7 @@ const tools = createSimulationTools();
 const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
 const creator = new OpportunityCreator();
+const survival = new SurvivalManager();
 
 const agent = new NeveraAgent(
   nevera,
@@ -29,7 +31,8 @@ const agent = new NeveraAgent(
   simulateOutcome,
   learning,
   creator,
-  evaluateOpportunity
+  evaluateOpportunity,
+  survival
 );
 
 nevera.boot();
