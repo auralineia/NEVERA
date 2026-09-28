@@ -149,6 +149,34 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url.startsWith("/generation-test")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? "";
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) {
+      res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
+      return;
+    }
+    try {
+      const content = await generationProvider.generate({
+        system: "You are NEVERA's production engine. Return only the requested test deliverable. Do not claim external actions were performed.",
+        prompt: "Generate a short professional test deliverable in Portuguese proving that the connected generation provider can produce useful work. Include a title, three concrete bullet points and a final line: GERACAO_REAL_OK.",
+        maxTokens: 700
+      });
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+      res.end(JSON.stringify({
+        ok: Boolean(content),
+        generation: generationProvider.status(),
+        content: content ?? null
+      }));
+    } catch (error) {
+      res.writeHead(502, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: false, generation: generationProvider.status(), error: String(error?.message ?? error) }));
+    }
+    return;
+  }
+
   if (req.method === "GET" && req.url === "/payment-status") {
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(paymentAdapter.status()));
