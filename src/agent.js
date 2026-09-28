@@ -144,7 +144,7 @@ export class NeveraAgent {
       return { decision, createdOpportunity: created, createdEvaluation, candidates, result };
     }
 
-    const outcome = this.simulator(executionOpportunity);
+    const outcome = await this.simulator(executionOpportunity);
 
     if (outcome.cost > 0) {
       this.nevera.spend(outcome.cost, `simulated: ${choice.opportunity.name}`);
@@ -154,6 +154,7 @@ export class NeveraAgent {
       this.nevera.earn(outcome.revenue, `simulated: ${choice.opportunity.name}`);
     }
 
+    choice.opportunity.status = "CLOSED";
     this.learning.record(choice.opportunity, outcome);
     this.brain.remember(choice.opportunity.name, outcome);
 
