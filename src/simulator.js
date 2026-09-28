@@ -1,8 +1,16 @@
-export function simulateOutcome(opportunity) {
-  const successRate = Math.max(0, Math.min(1, 1 - opportunity.risk));
+export function createSeededRandom(seed = 42) {
+  let state = Math.abs(Math.trunc(seed)) % 2147483647;
+  if (state === 0) state = 1;
 
-  // Deterministic simulation for reproducible tests.
-  const successful = successRate >= 0.5;
+  return () => {
+    state = (state * 48271) % 2147483647;
+    return (state - 1) / 2147483646;
+  };
+}
+
+export function simulateOutcome(opportunity, random = Math.random) {
+  const successRate = Math.max(0, Math.min(1, 1 - opportunity.risk));
+  const successful = random() < successRate;
 
   if (successful) {
     return {
