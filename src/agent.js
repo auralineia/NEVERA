@@ -3,7 +3,7 @@ import { validateExecution } from "./quality.js";
 import { CapitalPolicy } from "./capital-policy.js";
 import { chooseOpportunities } from "./strategy.js";
 import { ProductionQueue } from "./production-queue.js";
-import { calculateProductionPriority } from "./priority.js";
+import { calculateProductionPriority, defaultPriorityWeights, learnPriorityWeights } from "./priority.js";
 
 export class NeveraAgent {
   constructor(nevera, brain, tools, strategy, market, simulator, learning, creator, evaluator, survival, dynamicMarket = null, executionEngine = null) {
@@ -20,10 +20,12 @@ export class NeveraAgent {
     this.dynamicMarket = dynamicMarket;
     this.executionEngine = executionEngine ?? new ExecutionEngine();
     this.capitalPolicy = new CapitalPolicy();
-    this.productionQueue = new ProductionQueue((item) => calculateProductionPriority(item, this.learning));
+    this.priorityWeights = defaultPriorityWeights();
+    this.productionQueue = new ProductionQueue((item) => calculateProductionPriority(item, this.learning, this.priorityWeights));
   }
 
   async cycle(strategyProfile = null, { maxActions = 3 } = {}) {
+    this.priorityWeights = learnPriorityWeights(this.learning, this.priorityWeights);
     const actions = [];
     let resources = this.executionEngine.beginCycle();
     this.nevera.log("RESOURCE_CYCLE", { resources, maxActions });
@@ -113,7 +115,8 @@ export class NeveraAgent {
         executionOpportunity,
         priorityScore: calculateProductionPriority(
           { choice, opportunity: executionOpportunity },
-          this.learning
+          this.learning,
+          this.priorityWeights
         )
       };
     });
