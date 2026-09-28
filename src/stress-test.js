@@ -106,7 +106,7 @@ export async function runStressTest({
       (batch.results.filter((item) => item.netWorthChange < 0).length / runs).toFixed(4)
     );
 
-    const scenarioResults.push({
+    scenarioResults.push({
       name: scenario.name,
       survivalRate: batch.survivalRate,
       averageFinalBalance: batch.averageFinalBalance,
