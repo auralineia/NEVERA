@@ -47,7 +47,6 @@ const saved = await persistence.load();
 
 const initialBalance = saved?.initialBalance ?? 10;
 const nevera = new Nevera({ initialBalance: saved?.balance ?? initialBalance });
-const brain = new Brain(objectiveManager);
 const tools = createSimulationTools();
 const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
@@ -68,6 +67,7 @@ const realSandbox = new RealSandbox({
   allowDomains: (process.env.NEVERA_ALLOWED_DOMAINS ?? "example.com").split(",").map((v) => v.trim()).filter(Boolean),
   killSwitch: process.env.NEVERA_KILL_SWITCH === "1"
 });
+const opportunitySources = normalizeSources(defaultOpportunitySources());
 const discovery = new OpportunityDiscovery({
   sandbox: realSandbox,
   sources: opportunitySources.map((source) => ({
@@ -81,6 +81,7 @@ const taskExecutor = new TaskExecutor({ sandbox: realSandbox, guardrails });
 guardrails.losses = Number(saved?.guardrails?.losses ?? 0);
 const telemetry = new Telemetry();
 const objectiveManager = new ObjectiveManager();
+const brain = new Brain(objectiveManager);
 const decisionMemory = new DecisionMemory(saved?.decisionMemory ?? []);
 const actionBudget = new ActionBudget({ maxActions: 3, maxCost: Number(process.env.NEVERA_MAX_CYCLE_COST ?? 1) });
 const runtime = new Runtime();
@@ -88,7 +89,6 @@ const recovery = new RecoveryManager();
 const economicMemory = new EconomicMemory(saved?.economicMemory ?? []);
 const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
 const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory });
-const opportunitySources = normalizeSources(defaultOpportunitySources());
 
 const dynamicMarket = new DynamicMarket(
   saved?.marketSeed ?? 42,
@@ -133,8 +133,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const publicSources = await discovery.scan();
   const publicOpportunities = translatePublicSignals(publicSources);
   const opportunityBatch = opportunityEngine.discover(publicOpportunities, nevera.snapshot().economy.balance);
-  const portfolio = buildPortfolio(opportunityBatch.map((item) => item.opportunity), { maxItems: 3 });
-  const publicTasks = planPublicTasks(portfolio);
+  const portfolioSelection = buildPortfolio(opportunityBatch.map((item) => item.opportunity), { maxItems: 3 });
+  const publicTasks = planPublicTasks(portfolioSelection);
   const opportunityStats = opportunityMetrics(opportunityBatch);
   for (const task of publicTasks) {
     telemetry.record("TASK_PLANNED", { cycle, task: task.name, cost: task.cost });
