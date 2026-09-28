@@ -14,7 +14,7 @@ const autonomous = new AutonomousRuntime({
   recovery,
   runtime,
   telemetry,
-  stateReader: async () => JSON.parse(await readFile("./nevera-state.json", "utf8")),
+  stateReader: async () => JSON.parse(await readFile(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json", "utf8")),
   heartbeatMs: delay
 });
 
