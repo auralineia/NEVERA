@@ -34,7 +34,10 @@ const ledger = new DecisionLedger(saved?.decisions ?? []);
 const experiments = new ExperimentManager(saved?.experiments ?? []);
 const hypothesisEngine = new HypothesisEngine();
 const adaptationEngine = new AdaptationEngine();
-const dynamicMarket = new DynamicMarket(saved?.marketSeed ?? 42);
+const dynamicMarket = new DynamicMarket(
+  saved?.marketSeed ?? 42,
+  saved?.marketEvents ?? null
+);
 
 nevera.boot();
 brain.setObjective("Encontrar uma forma legítima e sustentável de gerar a primeira receita");
@@ -110,6 +113,7 @@ for (let offset = 0; offset < 5 && !nevera.isDead(); offset += 1) {
     experiments: experiments.export(),
     explorationInterval,
     marketSeed: 42,
+    marketEvents: dynamicMarket.state(),
     metrics,
     lastResult: result
   });
@@ -140,5 +144,7 @@ console.log(JSON.stringify({
   recentDecisions: ledger.recent(5),
   recentExperiments: experiments.recent(5),
   explorationInterval,
+  marketEvent: dynamicMarket.lastEvent,
+  marketState: dynamicMarket.state(),
   persistence: "LOCAL_SIMULATION"
 }, null, 2));
