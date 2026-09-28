@@ -110,6 +110,8 @@ export async function runStressTest({
     });
   }
 
+  const totalCycles = scenarios.length * runs * cycles;
+
   const overallSurvivalRate = Number(
     (scenarioResults.reduce((sum, item) => sum + item.survivalRate, 0) / scenarioResults.length).toFixed(4)
   );
@@ -117,6 +119,7 @@ export async function runStressTest({
   return {
     runsPerScenario: runs,
     cycles,
+    totalCycles,
     initialBalance,
     scenarios: scenarioResults,
     overallSurvivalRate,
