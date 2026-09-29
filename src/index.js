@@ -248,6 +248,33 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url.startsWith("/applications")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\\s+/i, "");
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "UNAUTHORIZED" })); return; }
+    const status = requestUrl.searchParams.get("status");
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ applications: applicationEngine.list({ status }), policy: applicationPolicy.snapshot(), browser: browserWorker.status() }));
+    return;
+  }
+
+  if (req.method === "POST" && req.url.startsWith("/applications/inspect")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\\s+/i, "");
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "UNAUTHORIZED" })); return; }
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    let body = {}; try { body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "INVALID_JSON" })); return; }
+    const url = body.url;
+    if (!url) { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "APPLICATION_URL_MISSING" })); return; }
+    const platform = body.platform ? platformRegistry.get(body.platform) : [...platformRegistry.values()].find((item) => item.supports(url));
+    if (!platform) { res.writeHead(409, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "PLATFORM_NOT_CONFIGURED_FOR_URL", url })); return; }
+    try { const inspection = await platform.inspect(body.session ?? "default", url); res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }); res.end(JSON.stringify({ ok: true, inspection })); }
+    catch (error) { res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) })); }
+    return;
+  }
+
   if (req.method === "POST" && req.url.startsWith("/applications/submit")) {
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\\s+/i, "");
@@ -289,10 +316,18 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: false, decision, application, policy: applicationPolicy.snapshot() }));
       return;
     }
+    const targetUrl = body.url ?? application.url;
+    const platform = body.platform ? platformRegistry.get(body.platform) : [...platformRegistry.values()].find((item) => item.supports(targetUrl));
+    if (!platform) {
+      res.writeHead(409, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "PLATFORM_NOT_CONFIGURED_FOR_URL", application, policy: applicationPolicy.snapshot() }));
+      return;
+    }
     const result = await applicationEngine.submit(application, {
       session: body.session ?? "default",
-      url: body.url ?? application.url,
-      selectors: body.selectors ?? {}
+      url: targetUrl,
+      selectors: body.selectors ?? {},
+      platform
     });
     res.writeHead(result.status === "SUBMITTED" ? 200 : 409, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify({ ok: result.status === "SUBMITTED", application: result, policy: applicationPolicy.snapshot() }));
