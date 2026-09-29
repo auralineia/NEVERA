@@ -102,6 +102,10 @@ export class PaymentAdapter {
     }
 
     if (this.provider === "MERCADOPAGO") {
+      if (offerId === "CAPITAL-FUNDING") {
+        const pix = await this.createPixPayment({ paymentId, amount, title: title || "NEVERA — Capital inicial", payerEmail: process.env.NEVERA_CAPITAL_PAYER_EMAIL ?? "Kelvyncandeia@gmail.com", metadata });
+        return { ...pix, status: "CHECKOUT_CREATED", checkoutUrl: pix.ticketUrl };
+      }
       const base = this.returnUrl ? this.returnUrl.replace(/\/$/, "") : undefined;
       const response = await fetch(`${MERCADO_PAGO_API}/checkout/preferences`, {
         method: "POST",
