@@ -80,7 +80,7 @@ export class RevenueEngine {
     };
   }
 
-  createOffer({ channel, market, signal, score = 0.5, title = null, sourceUrl = null, company = null, location = null } = {}) {
+  createOffer({ channel, market, signal, score = 0.5, title = null, sourceUrl = null, company = null, location = null, pipelineId = null } = {}) {
     const selectedChannel = REVENUE_CHANNELS.includes(channel) ? channel : "DIGITAL_SERVICES";
     const pricing = this.price(selectedChannel, market, score);
     const id = "OFFER-" + (++this.sequence).toString().padStart(6, "0");
@@ -96,7 +96,7 @@ export class RevenueEngine {
       company,
       location,
       score: Number(score) || 0,
-      pipelineId: arguments?.[0]?.pipelineId ?? null,
+      pipelineId,
       status: "DRAFT",
       createdAt: new Date().toISOString(),
       paymentMethods: this.market(pricing.market).methods,
@@ -108,7 +108,9 @@ export class RevenueEngine {
         url: sourceUrl,
         company,
         location,
-        signal: signal?.name ?? "PUBLIC_DEMAND"
+        signal: signal?.name ?? "PUBLIC_DEMAND",
+        pipelineId,
+        market: pricing.market
       }
     };
     this.offers.push(offer);
