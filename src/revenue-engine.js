@@ -96,6 +96,7 @@ export class RevenueEngine {
       company,
       location,
       score: Number(score) || 0,
+      pipelineId: arguments?.[0]?.pipelineId ?? null,
       status: "DRAFT",
       createdAt: new Date().toISOString(),
       paymentMethods: this.market(pricing.market).methods,
@@ -174,7 +175,8 @@ export class RevenueEngine {
         title: item?.name ?? null,
         sourceUrl: item?.url ?? null,
         company: item?.company ?? null,
-        location: item?.location ?? null
+        location: item?.location ?? null,
+        pipelineId: item?.pipelineId ?? null
       }));
     }
     return created;
@@ -190,8 +192,8 @@ export class RevenueEngine {
       paymentIntents: this.paymentIntents.slice(-50),
       ledger: this.ledger.slice(-100),
       stats: { ...this.stats },
-      realPayments: false,
-      providerStatus: "ADAPTER_REQUIRED"
+      realPayments: true,
+      providerStatus: "LIVE_CHECKOUT_READY"
     };
   }
 }
