@@ -17,7 +17,8 @@
     "ruflo:init": "npx ruflo@latest init wizard",
     "ruflo:doctor": "npx ruflo@latest doctor --fix",
     "ruflo:swarm": "npx ruflo@latest swarm init --topology hierarchical --max-agents 6 --strategy specialized",
-    "ruflo:daemon": "npx ruflo@latest daemon start"
+    "ruflo:daemon": "npx ruflo@latest daemon start",
+    "ruflo:service": "sh scripts/ruflo-service.sh"
   },
   "engines": {
     "node": ">=20"
