@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-const ALLOWED = new Set(["DRAFT_ONLY", "APPROVED_AUTOMATION"]);
+const AUTOMATION_POLICY = "APPROVED_AUTOMATION";
 
 export class ApplicationEngine {
   constructor({ browser = null, generator = null } = {}) {
@@ -59,7 +59,7 @@ export class ApplicationEngine {
 
   async submit(record, { session = "default", url = null, selectors = {} } = {}) {
     if (!record) throw new Error("APPLICATION_NOT_FOUND");
-    if (!ALLOWED.has(record.policy)) {
+    if (record.policy !== AUTOMATION_POLICY) {
       record.status = "DRAFT_ONLY";
       record.blockReason = "AUTOMATION_POLICY_NOT_APPROVED";
       record.updatedAt = new Date().toISOString();
@@ -73,7 +73,7 @@ export class ApplicationEngine {
     if (selectors.submit) await this.browser.click(session, selectors.submit);
     record.status = "SUBMITTED";
     record.submittedAt = new Date().toISOString();
-    record.updatedAt = record.submittedAt;
+    record.updatedAt = record.submittedAt;\n    record.blockReason = null;
     return record;
   }
 
