@@ -82,7 +82,9 @@ export class PaymentAdapter {
       ["payment_intent_data[metadata][channel]", metadata.channel],
       ["payment_intent_data[metadata][market]", metadata.market],
       ["metadata[channel]", metadata.channel],
-      ["metadata[market]", metadata.market]
+      ["metadata[market]", metadata.market],
+      ["metadata[capitalFunding]", metadata.capitalFunding ? "true" : undefined],
+      ["payment_intent_data[metadata][capitalFunding]", metadata.capitalFunding ? "true" : undefined]
     ]);
 
     const response = await fetch(`${STRIPE_API}/checkout/sessions`, {
@@ -153,7 +155,8 @@ export class PaymentAdapter {
       fees: 0,
       currency: object.currency ?? null,
       providerPaymentId: object.id ?? event.id ?? null,
-      eventType: type
+      eventType: type,
+      capitalFunding: String(object.metadata?.capitalFunding ?? event.metadata?.capitalFunding ?? "") === "true"
     };
   }
 }
