@@ -13,7 +13,7 @@ export class RealCapital {
     this.transactions = Array.isArray(saved.transactions) ? saved.transactions : [];
   }
 
-  fund(amount, reference = "EXTERNAL_FUNDING") {
+  fund(amount, reference = "EXTERNAL_FUNDING", verified = false) {
     const value = money(amount);
     if (value <= 0) throw new Error("INVALID_REAL_CAPITAL_AMOUNT");
     this.balance = money(this.balance + value);
@@ -23,7 +23,7 @@ export class RealCapital {
       amount: value,
       currency: this.currency,
       reference: String(reference),
-      verified: false,
+      verified: Boolean(verified),
       recordedAt: new Date().toISOString()
     });
     return this.snapshot();
