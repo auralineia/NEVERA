@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+data/ruflo-memory/
+.claude-flow/data/
+.claude-flow/logs/
+.swarm/
+.hive-mind/
+.mcp.json
