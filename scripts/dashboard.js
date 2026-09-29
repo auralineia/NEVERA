@@ -37,9 +37,11 @@ function publicState(state) {
   const offers = Array.isArray(revenueEngine.offers) ? revenueEngine.offers : [];
   const payments = Array.isArray(revenueEngine.paymentIntents) ? revenueEngine.paymentIntents : [];
   const opportunities = Array.isArray(state.publicOpportunities) ? state.publicOpportunities : [];
+  const realCapital = state.realCapital ?? {};
 
   return {
     balance: state.balance,
+    realCapital,
     cycle: state.cycle,
     status: state.status ?? state.lastResult?.agent?.status ?? "UNKNOWN",
     metrics: state.metrics ?? null,
@@ -115,11 +117,11 @@ async function refresh(){
  try{
   const r=await fetch('/state',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
   const s=await r.json(), e=s.metrics||{},g=s.guardrails||{},rt=s.runtime||{},rc=s.recovery||{}, rev=s.revenue||{};
-  const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—";
+  const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—", rc=s.realCapital||{};
   document.getElementById('cards').innerHTML=[
-   card("Saldo",s.balance),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Receita líquida",e.net),
+   card("Saldo interno",s.balance),card("Capital real",((rc.balance??0).toFixed?.(2)??rc.balance??0)+" BRL",rc.balance>0?"ok":"warn"),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Receita líquida",e.net),
    card("Drawdown",e.maxDrawdown),card("Perdas",g.losses),card("Cooldown",g.cooldownRemaining,g.cooldownRemaining>0?"warn":"ok"),
-   card("Receita confirmada",rev.netRevenue??0),card("Pagamentos",rev.paymentsConfirmed??0),
+   card("Receita confirmada",rev.netRevenue??0),card("Pagamentos",rev.paymentsConfirmed??0),card("Capital status",rc.fundingStatus??"AGUARDANDO"),
    card("Live",rev.liveAuthorized?"ATIVO":"BLOQUEADO",rev.liveAuthorized?"ok":"warn"),card("Restarts",rc.restarts??0,rc.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok")
   ].join('');
 
@@ -129,7 +131,7 @@ async function refresh(){
   const payments=(rev.payments||[]).slice().reverse();
   document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+(p.checkoutError?'<div class="muted">Erro: '+esc(p.checkoutError)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
 
-  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:rc,guardrails:g,revenue:rev,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
+  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:rc,guardrails:g,revenue:rev,realCapital:rc,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
 }
 refresh();setInterval(refresh,2000);
