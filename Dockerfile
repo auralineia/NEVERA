@@ -1,9 +1,11 @@
-FROM node:20-alpine
+FROM node:20-bookworm
 
 WORKDIR /app
 
 COPY package*.json ./
 COPY . .
+
+RUN npx playwright install --with-deps chromium
 
 ENV NODE_ENV=production
 ENV NEVERA_DASHBOARD_PORT=8787
