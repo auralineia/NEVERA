@@ -280,6 +280,52 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url.startsWith("/capital/reconcile")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? "";
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) {
+      res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
+      return;
+    }
+    if (paymentAdapter.provider !== "MERCADOPAGO" || !paymentAdapter.liveAuthorized) {
+      res.writeHead(409, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "MERCADOPAGO_NOT_AUTHORIZED" }));
+      return;
+    }
+    try {
+      const response = await fetch("https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit=50", {
+        headers: { authorization: "Bearer " + paymentAdapter.mercadoPagoAccessToken }
+      });
+      if (!response.ok) throw new Error("MERCADO_PAGO_SEARCH_HTTP_" + response.status);
+      const payload = await response.json();
+      const payment = (payload.results ?? []).find((item) =>
+        String(item.status ?? "").toLowerCase() === "approved" &&
+        String(item.external_reference ?? "").startsWith("CAPITAL-")
+      );
+      if (!payment) {
+        res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+        res.end(JSON.stringify({ ok: true, found: false, capital: realCapital.snapshot() }));
+        return;
+      }
+      if (realCapital.balance <= 0) {
+        realCapital.fund(Number(payment.transaction_amount), "MERCADOPAGO_CAPITAL_RECONCILIATION", true);
+        const state = (await persistence.load()) ?? {};
+        state.realCapital = realCapital.snapshot();
+        state.revenueEngine = revenueEngine.snapshot();
+        state.deliverables = deliverableEngine.snapshot();
+        await persistence.save(state);
+      }
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: true, found: true, paymentId: payment.id, amount: payment.transaction_amount, status: payment.status, capital: realCapital.snapshot() }));
+    } catch (error) {
+      res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) }));
+    }
+    return;
+  }
+
   if (req.method !== "POST" || !req.url.startsWith("/webhooks/payments")) {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "NOT_FOUND" }));
@@ -313,9 +359,9 @@ const paymentWebhookServer = createServer(async (req, res) => {
     if (event.capitalFunding) {
       if (realCapital.balance <= 0) {
         const fundedAmount = event.gross != null && String(event.currency ?? "BRL").toLowerCase() === "brl"
-          ? Number(event.gross) / 100
+          ? Number(event.gross)
           : Number(event.gross ?? process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10);
-        realCapital.fund(fundedAmount, "STRIPE_CAPITAL_FUNDING", true);
+        realCapital.fund(fundedAmount, "MERCADOPAGO_CAPITAL_FUNDING", true);
       }
       const state = (await persistence.load()) ?? {};
       state.realCapital = realCapital.snapshot();
