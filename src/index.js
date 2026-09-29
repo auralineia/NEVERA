@@ -205,8 +205,12 @@ const paymentWebhookServer = createServer(async (req, res) => {
         title: "NEVERA — Capital inicial",
         metadata: { channel: "CAPITAL_FUNDING", market: "BR", capitalFunding: true }
       });
-      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      res.end(JSON.stringify({ ok: true, purpose: "REAL_CAPITAL_FUNDING", amount: Number(process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10), currency: "BRL", checkoutUrl: checkout.checkoutUrl, paymentId }));
+      if (!checkout.checkoutUrl) throw new Error("CHECKOUT_URL_MISSING");
+      res.writeHead(302, {
+        location: checkout.checkoutUrl,
+        "cache-control": "no-store"
+      });
+      res.end();
     } catch (error) {
       res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) }));
