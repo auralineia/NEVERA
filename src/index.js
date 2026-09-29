@@ -59,6 +59,7 @@ import { RevenueExecutionPipeline } from "./revenue-execution-pipeline.js";
 import { BrowserWorker } from "./browser-worker.js";
 import { ApplicationEngine } from "./application-engine.js";
 import { createPlatformRegistry } from "./platform-adapter.js";
+import { ApplicationPolicy } from "./application-policy.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -151,6 +152,12 @@ const platformRegistry = createPlatformRegistry({
     };
   }).filter((item) => item.name)
 });
+const applicationPolicy = new ApplicationPolicy({
+  automationEnabled: String(process.env.NEVERA_AUTO_APPLY ?? "false").toLowerCase() === "true",
+  maxApplicationsPerDay: Number(process.env.NEVERA_MAX_APPLICATIONS_PER_DAY ?? 10),
+  minScore: Number(process.env.NEVERA_MIN_APPLICATION_SCORE ?? 70),
+  allowedDomains: (process.env.NEVERA_BROWSER_ALLOWED_DOMAINS ?? "").split(",").map((v) => v.trim()).filter(Boolean)
+});
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
@@ -238,6 +245,57 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) }));
     }
+    return;
+  }
+
+  if (req.method === "POST" && req.url.startsWith("/applications/submit")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\\s+/i, "");
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) {
+      res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
+      return;
+    }
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    let body = {};
+    try { body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "INVALID_JSON" }));
+      return;
+    }
+    const application = applicationEngine.records.find((item) => item.id === body.applicationId);
+    if (!application) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "APPLICATION_NOT_FOUND" }));
+      return;
+    }
+    const submittedToday = applicationEngine.records.filter((item) =>
+      item.status === "SUBMITTED" &&
+      item.submittedAt &&
+      new Date(item.submittedAt).toDateString() === new Date().toDateString()
+    ).length;
+    const decision = applicationPolicy.canSubmit({
+      score: Number(body.score ?? 0),
+      url: body.url ?? application.url,
+      submittedToday
+    });
+    if (!decision.allowed) {
+      application.status = "DRAFT_ONLY";
+      application.blockReason = decision.reason;
+      application.updatedAt = new Date().toISOString();
+      res.writeHead(409, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: false, decision, application, policy: applicationPolicy.snapshot() }));
+      return;
+    }
+    const result = await applicationEngine.submit(application, {
+      session: body.session ?? "default",
+      url: body.url ?? application.url,
+      selectors: body.selectors ?? {}
+    });
+    res.writeHead(result.status === "SUBMITTED" ? 200 : 409, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: result.status === "SUBMITTED", application: result, policy: applicationPolicy.snapshot() }));
     return;
   }
 
@@ -742,7 +800,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
     executionPipeline: executionPipeline.snapshot(),
     applications: applicationEngine.snapshot(),
-    browser: { ...browserWorker.status(), platforms: [...platformRegistry.keys()] },
+    browser: { ...browserWorker.status(), platforms: [...platformRegistry.keys()], applicationPolicy: applicationPolicy.snapshot() },
     realCapital: realCapital.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
