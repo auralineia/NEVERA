@@ -197,20 +197,18 @@ const paymentWebhookServer = createServer(async (req, res) => {
     }
     try {
       const paymentId = "CAPITAL-" + Date.now().toString(36).toUpperCase();
-      const checkout = await paymentAdapter.createCheckout({
+      const pix = await paymentAdapter.createPixPayment({
         paymentId,
-        offerId: "CAPITAL-FUNDING",
         amount: Number(process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10),
-        currency: "BRL",
         title: "NEVERA — Capital inicial",
+        payerEmail: process.env.NEVERA_CAPITAL_PAYER_EMAIL ?? "Kelvyncandeia@gmail.com",
         metadata: { channel: "CAPITAL_FUNDING", market: "BR", capitalFunding: true }
       });
-      if (!checkout.checkoutUrl) throw new Error("CHECKOUT_URL_MISSING");
-      res.writeHead(302, {
-        location: checkout.checkoutUrl,
-        "cache-control": "no-store"
-      });
-      res.end();
+      const qr = String(pix.qrCode ?? "");
+      const safeQr = qr.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      const safeUrl = String(pix.ticketUrl ?? "#").replace(/&/g,"&amp;").replace(/"/g,"&quot;");
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.end("<!doctype html><html><body style='font-family:system-ui;max-width:700px;margin:40px auto;padding:20px'><h1>NEVERA — Pix</h1><h2>R$ 10,00</h2><p>Copie o código abaixo no aplicativo do seu banco:</p><textarea style='width:100%;height:180px;font-size:13px' readonly>"+safeQr+"</textarea><p><a href='"+safeUrl+"'>Abrir pagamento Pix</a></p></body></html>");
     } catch (error) {
       res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) }));
@@ -282,7 +280,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method !== "POST" || req.url !== "/webhooks/payments") {
+  if (req.method !== "POST" || !req.url.startsWith("/webhooks/payments")) {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "NOT_FOUND" }));
     return;
