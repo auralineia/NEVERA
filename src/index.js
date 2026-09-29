@@ -56,6 +56,8 @@ import { DeliverableEngine } from "./deliverable-engine.js";
 import { GenerationProvider } from "./generation-provider.js";
 import { RealCapital } from "./real-capital.js";
 import { RevenueExecutionPipeline } from "./revenue-execution-pipeline.js";
+import { BrowserWorker } from "./browser-worker.js";
+import { ApplicationEngine } from "./application-engine.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -129,6 +131,15 @@ const revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
 const executionPipeline = new RevenueExecutionPipeline({ generator: generationProvider });
 executionPipeline.restore(saved?.executionPipeline?.records ?? []);
 const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
+const browserWorker = new BrowserWorker({
+  storageDir: process.env.NEVERA_BROWSER_STORAGE_DIR ?? "/data/nevera-browser",
+  allowDomains: (process.env.NEVERA_BROWSER_ALLOWED_DOMAINS ?? "").split(",").map((v) => v.trim()).filter(Boolean),
+  headless: String(process.env.NEVERA_BROWSER_HEADLESS ?? "true").toLowerCase() !== "false",
+  timeoutMs: Math.max(3000, Number(process.env.NEVERA_BROWSER_TIMEOUT_MS ?? 15000)),
+  automationEnabled: String(process.env.NEVERA_BROWSER_AUTOMATION ?? "false").toLowerCase() === "true"
+});
+const applicationEngine = new ApplicationEngine({ browser: browserWorker, generator: generationProvider });
+applicationEngine.restore(saved?.applications ?? []);
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
@@ -502,7 +513,12 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
       await executionPipeline.prepareProposal(pipelineRecord, opportunity);
     }
     if (pipelineRecord.status === "PROPOSAL_READY") {
-      qualifiedOpportunities.push({ ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id });
+      const application = applicationEngine.prepare({
+        ...opportunity,
+        automationPolicy: opportunity.automationPolicy ?? "DRAFT_ONLY"
+      });
+      await applicationEngine.generateProposal(application, opportunity);
+      qualifiedOpportunities.push({ ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id, applicationId: application.id });
     }
   }
   const revenueOffers = revenueEngine.cycle({
@@ -714,6 +730,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     opportunityStats,
     revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
     executionPipeline: executionPipeline.snapshot(),
+    applications: applicationEngine.snapshot(),
+    browser: browserWorker.status(),
     realCapital: realCapital.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
