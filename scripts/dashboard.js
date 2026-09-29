@@ -1,10 +1,12 @@
 import { createServer, request as httpRequest } from "node:http";
 import { readFile } from "node:fs/promises";
+import { GenerationProvider } from "../src/generation-provider.js";
 
 const port = Number(process.env.NEVERA_DASHBOARD_PORT ?? 8787);
 const statePath = (process.env.NEVERA_STATE_FILE ?? "./nevera-state.json").trim();
 const publicMode = process.env.NEVERA_DASHBOARD_PUBLIC === "true";
 const token = process.env.NEVERA_DASHBOARD_TOKEN ?? "";
+const generationProvider = new GenerationProvider();
 const host = publicMode ? "0.0.0.0" : "127.0.0.1";
 
 if (publicMode && !token) throw new Error("DASHBOARD_TOKEN_REQUIRED");
@@ -142,7 +144,26 @@ function proxyPaymentRequest(req,res){
 }
 
 createServer(async(req,res)=>{
- if(req.url==="/payment-status"||req.url==="/health"||req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url==="/webhooks/payments"||req.url.startsWith("/generation-test")){proxyPaymentRequest(req,res);return}
+ if(req.url.startsWith("/generation-test")){
+  if(!authorized(req)){unauthorized(res);return}
+  try{
+    const requestUrl=new URL(req.url,"http://nevera.local");
+    const queryToken=requestUrl.searchParams.get("token")??"";
+    if(!token || queryToken!==token){res.writeHead(401,{"content-type":"application/json","cache-control":"no-store"});res.end(JSON.stringify({error:"UNAUTHORIZED"}));return}
+    const content=await generationProvider.generate({
+      system:"You are NEVERA's production engine. Return only the requested test deliverable. Do not claim external actions were performed.",
+      prompt:"Generate a short professional test deliverable in Portuguese proving that the connected generation provider can produce useful work. Include a title, three concrete bullet points and a final line: GERACAO_REAL_OK.",
+      maxTokens:700
+    });
+    res.writeHead(200,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});
+    res.end(JSON.stringify({ok:Boolean(content),generation:generationProvider.status(),content:content??null}));
+  }catch(error){
+    res.writeHead(502,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});
+    res.end(JSON.stringify({ok:false,generation:generationProvider.status(),error:String(error?.message??error)}));
+  }
+  return;
+}
+if(req.url==="/payment-status"||req.url==="/health"||req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url==="/webhooks/payments"){proxyPaymentRequest(req,res);return}
  if(!authorized(req)){unauthorized(res);return}
  if(req.url==="/health"){
   try{await readFile(statePath,"utf8");res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});res.end(JSON.stringify({ok:true,stateAvailable:true,checkedAt:new Date().toISOString()}))}
