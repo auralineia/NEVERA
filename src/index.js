@@ -380,14 +380,27 @@ const paymentWebhookServer = createServer(async (req, res) => {
     const confirmed = revenueEngine.confirmPayment(event.paymentId, { gross: event.gross, fees: event.fees });
     const offer = revenueEngine.offers.find((item) => item.id === confirmed.offerId);
     let fulfillment = null;
+    const pipelineRecord = executionPipeline.records.find((item) => item.paymentId === confirmed.id || item.id === offer?.pipelineId);
     if (!existingPayment?.fulfillmentId && offer?.opportunity) {
-      fulfillment = await deliverableEngine.fulfill(offer.opportunity);
-      confirmed.fulfillmentId = fulfillment.id;
-      confirmed.fulfillmentStatus = fulfillment.status;
-      const pipelineRecord = executionPipeline.records.find((item) => item.paymentId === confirmed.id || item.id === offer?.pipelineId);
-      if (pipelineRecord) {
-        executionPipeline.markPaid(pipelineRecord, confirmed.id, fulfillment.id);
-        executionPipeline.markDelivered(pipelineRecord, fulfillment.id);
+      try {
+        fulfillment = await deliverableEngine.fulfill(offer.opportunity);
+        confirmed.fulfillmentId = fulfillment.id;
+        confirmed.fulfillmentStatus = fulfillment.status;
+        if (pipelineRecord) {
+          executionPipeline.markPaid(pipelineRecord, confirmed.id, fulfillment.id);
+          if (fulfillment.status === "DELIVERED") {
+            executionPipeline.markDelivered(pipelineRecord, fulfillment.id);
+          } else {
+            executionPipeline.markFulfillmentFailed(pipelineRecord, "DELIVERABLE_NOT_CONFIRMED");
+          }
+        }
+      } catch (error) {
+        confirmed.fulfillmentStatus = "FAILED";
+        if (pipelineRecord) {
+          executionPipeline.markPaid(pipelineRecord, confirmed.id);
+          executionPipeline.markFulfillmentFailed(pipelineRecord, error.message);
+        }
+        telemetry.record("FULFILLMENT_ERROR", { paymentId: confirmed.id, offerId: offer?.id ?? null, message: error.message });
       }
     }
     const state = (await persistence.load()) ?? {};
