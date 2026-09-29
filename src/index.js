@@ -310,7 +310,10 @@ const paymentWebhookServer = createServer(async (req, res) => {
     }
     if (event.capitalFunding) {
       if (realCapital.balance <= 0) {
-        realCapital.fund(Number(event.gross ?? process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10), "STRIPE_CAPITAL_FUNDING", true);
+        const fundedAmount = event.gross != null && String(event.currency ?? "BRL").toLowerCase() === "brl"
+          ? Number(event.gross) / 100
+          : Number(event.gross ?? process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10);
+        realCapital.fund(fundedAmount, "STRIPE_CAPITAL_FUNDING", true);
       }
       const state = (await persistence.load()) ?? {};
       state.realCapital = realCapital.snapshot();
