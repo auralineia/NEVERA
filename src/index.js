@@ -58,6 +58,7 @@ import { RealCapital } from "./real-capital.js";
 import { RevenueExecutionPipeline } from "./revenue-execution-pipeline.js";
 import { BrowserWorker } from "./browser-worker.js";
 import { ApplicationEngine } from "./application-engine.js";
+import { createPlatformRegistry } from "./platform-adapter.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -140,6 +141,16 @@ const browserWorker = new BrowserWorker({
 });
 const applicationEngine = new ApplicationEngine({ browser: browserWorker, generator: generationProvider });
 applicationEngine.restore(saved?.applications ?? []);
+const platformRegistry = createPlatformRegistry({
+  browser: browserWorker,
+  definitions: (process.env.NEVERA_PLATFORM_DOMAINS ?? "").split(";").map((entry) => {
+    const [name, domains] = entry.split("=");
+    return {
+      name: String(name ?? "").trim(),
+      domains: String(domains ?? "").split(",").map((v) => v.trim()).filter(Boolean)
+    };
+  }).filter((item) => item.name)
+});
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
@@ -731,7 +742,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
     executionPipeline: executionPipeline.snapshot(),
     applications: applicationEngine.snapshot(),
-    browser: browserWorker.status(),
+    browser: { ...browserWorker.status(), platforms: [...platformRegistry.keys()] },
     realCapital: realCapital.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
