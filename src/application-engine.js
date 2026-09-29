@@ -69,14 +69,27 @@ export class ApplicationEngine {
     const target = url ?? record.url;
     if (!target) throw new Error("APPLICATION_URL_MISSING");
     await this.browser.navigate(session, target);
+    const page = await this.browser.snapshot(session);
+    if (page?.captcha || page?.challenge) {
+      record.status = "CAPTCHA_REQUIRED";
+      record.blockReason = "HUMAN_INTERVENTION_REQUIRED";
+      record.updatedAt = new Date().toISOString();
+      return record;
+    }
     if (selectors.proposal) await this.browser.fill(session, selectors.proposal, record.proposal ?? "");
-    if (selectors.submit) await this.browser.click(session, selectors.submit);
+    if (!selectors.submit) {
+      record.status = "READY";
+      record.blockReason = "SUBMIT_SELECTOR_MISSING";
+      record.updatedAt = new Date().toISOString();
+      return record;
+    }
+    await this.browser.click(session, selectors.submit);
     record.status = "SUBMITTED";
     record.submittedAt = new Date().toISOString();
-    record.updatedAt = record.submittedAt;\n    record.blockReason = null;
+    record.updatedAt = record.submittedAt;
+    record.blockReason = null;
     return record;
   }
-
   snapshot() {
     return this.records.slice(-200);
   }
