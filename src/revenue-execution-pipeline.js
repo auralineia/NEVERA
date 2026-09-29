@@ -193,11 +193,13 @@ export class RevenueExecutionPipeline {
 
   markDelivered(record, fulfillmentId) {
     if (!record) return null;
+    const wasPaid = record.status === "PAID";
     record.fulfillmentId = fulfillmentId ?? record.fulfillmentId;
     record.status = "DELIVERED";
     record.stage = "DELIVERED";
     this.stats.inProgress = Math.max(0, this.stats.inProgress - 1);
     this.stats.delivered += 1;
+    if (wasPaid) this.stats.paid += 1;
     return record;
   }
 
