@@ -66,7 +66,9 @@ export class RevenueEngine {
 
   price(channel, marketCode, signalScore = 0.5) {
     const profile = SERVICE_PROFILES[channel] ?? SERVICE_PROFILES.DIGITAL_SERVICES;
-    const market = this.market(marketCode);
+    const requestedMarket = this.market(marketCode);
+    const liveMercadoPago = String(process.env.NEVERA_PAYMENT_PROVIDER ?? "").toUpperCase() === "MERCADOPAGO" && String(process.env.NEVERA_PAYMENT_MODE ?? this.mode).toUpperCase() === "LIVE";
+    const market = liveMercadoPago ? this.market("BR") : requestedMarket;
     const confidence = Math.max(0.75, Math.min(1.5, 0.75 + Number(signalScore || 0) * 0.75));
     const amount = Math.max(1, Math.round(profile.baseUsd * market.multiplier * confidence));
     return {
