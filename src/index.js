@@ -54,6 +54,7 @@ import { createServer } from "node:http";
 import { configuredGlobalSources } from "./global-opportunity-sources.js";
 import { DeliverableEngine } from "./deliverable-engine.js";
 import { GenerationProvider } from "./generation-provider.js";
+import { RealCapital } from "./real-capital.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -61,6 +62,7 @@ const saved = await persistence.load();
 
 const initialBalance = saved?.initialBalance ?? 10;
 const nevera = new Nevera({ initialBalance: saved?.balance ?? initialBalance });
+const realCapital = new RealCapital(saved?.realCapital ?? {});
 const tools = createSimulationTools();
 const market = defaultMarket();
 const learning = new Learning(saved?.learning ?? []);
@@ -282,6 +284,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     const state = (await persistence.load()) ?? {};
     state.revenueEngine = revenueEngine.snapshot();
     state.deliverables = deliverableEngine.snapshot();
+    state.realCapital = realCapital.snapshot();
     await persistence.save(state);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, paymentId: confirmed.id, status: confirmed.status }));
@@ -575,6 +578,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     publicTasks,
     opportunityStats,
     revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
+    realCapital: realCapital.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
     failureMemory: failureMemory.export(),
