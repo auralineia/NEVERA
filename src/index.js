@@ -153,7 +153,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
 
   if (req.method === "GET" && req.url.startsWith("/generation-test")) {
     const requestUrl = new URL(req.url, "http://nevera.local");
-    const token = requestUrl.searchParams.get("token") ?? "";
+    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
     const authorization = String(req.headers.authorization ?? "");
     const authorizedByHeader = authorization === `Bearer ${expected}` || (authorization.startsWith("Basic ") && (() => { try { const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8"); return decoded.endsWith(`:${expected}`); } catch { return false; } })());
