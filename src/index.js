@@ -215,7 +215,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
 
   if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {
     const requestUrl = new URL(req.url, "http://nevera.local");
-    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\\s+/i, "");
+    const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
     if (!expected || token !== expected) {
       res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
