@@ -296,12 +296,12 @@ const paymentWebhookServer = createServer(async (req, res) => {
       chunks.push(chunk);
     }
     const rawBody = Buffer.concat(chunks);
-    if (!paymentAdapter.verifyWebhook(rawBody, req.headers["x-nevera-signature"] ?? req.headers["stripe-signature"])) {
+    if (!paymentAdapter.verifyWebhook(rawBody, req.headers["x-nevera-signature"] ?? req.headers["stripe-signature"] ?? req.headers["x-signature"], { url: req.url, requestId: req.headers["x-request-id"] })) {
       res.writeHead(401, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "INVALID_SIGNATURE" }));
       return;
     }
-    const event = paymentAdapter.parseWebhook(rawBody);
+    const event = await paymentAdapter.parseWebhook(rawBody);
     if (!["PAID", "SUCCEEDED", "COMPLETED", "PAYMENT_SUCCEEDED"].includes(event.status)) {
       res.writeHead(202, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, ignored: event.status }));
