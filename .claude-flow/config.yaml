@@ -1,0 +1,24 @@
+version: "3.0.0"
+
+swarm:
+  topology: hierarchical
+  maxAgents: 6
+  strategy: specialized
+  autoScale: false
+
+memory:
+  backend: hybrid
+  persistPath: ./data/ruflo-memory
+
+mcp:
+  autoStart: false
+
+logging:
+  level: info
+  format: pretty
+  output: console
+
+safety:
+  requireHumanApprovalForProduction: true
+  allowRealMoneyByDefault: false
+  allowSecretWrites: false
