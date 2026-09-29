@@ -39,11 +39,19 @@ function publicState(state) {
   const opportunities = Array.isArray(state.publicOpportunities) ? state.publicOpportunities : [];
   const realCapital = state.realCapital ?? {};
   const executionPipeline = state.executionPipeline ?? { stats: {}, records: [] };
+  const applications = Array.isArray(state.applications) ? state.applications : [];
+  const browser = state.browser ?? {};
 
   return {
     balance: state.balance,
     realCapital,
     executionPipeline,
+    applications: applications.slice(-20),
+    browser: {
+      automationEnabled: browser.automationEnabled ?? false,
+      allowDomains: browser.allowDomains ?? [],
+      activeSessions: browser.activeSessions ?? []
+    },
     cycle: state.cycle,
     status: state.status ?? state.lastResult?.agent?.status ?? "UNKNOWN",
     metrics: state.metrics ?? null,
@@ -111,6 +119,7 @@ pre{white-space:pre-wrap;overflow:auto;max-height:420px}
 <div id="cards" class="grid"></div>
 <div class="card wide"><h3>Oportunidades detectadas</h3><div id="opportunities" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Ofertas e checkouts</h3><div id="payments" class="rows">carregando...</div></div>\n<div class="card wide"><h3>Pipeline de receita</h3><div id="pipeline" class="rows">carregando...</div></div>
+<div class="card wide"><h3>Aplicações e navegador</h3><div id="applications" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Operação</h3><pre id="details">carregando...</pre></div>
 <script>
 function card(k,v,c=""){return '<div class="card '+c+'"><div class="label">'+k+'</div><div class="value">'+String(v??"—")+'</div></div>'}
@@ -134,10 +143,13 @@ async function refresh(){
   const payments=(rev.payments||[]).slice().reverse();
   document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+(p.checkoutError?'<div class="muted">Erro: '+esc(p.checkoutError)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
 
+  const browser=s.browser||{}, apps=(s.applications||[]).slice().reverse();
+  document.getElementById('applications').innerHTML='<div class="row"><strong>Navegador: '+(browser.automationEnabled?'ATIVO':'MODO RASCUNHO')+'</strong><div class="muted">Domínios autorizados: '+esc((browser.allowDomains||[]).join(', ')||'nenhum')+'</div></div>'+(apps.length?apps.slice(0,20).map(a=>'<div class="row"><strong>'+esc(a.title)+'</strong><div class="muted">'+esc(a.id)+' • '+esc(a.status)+' • política: '+esc(a.policy)+'</div>'+(a.proposal?'<pre>'+esc(a.proposal)+'</pre>':'')+'</div>').join(''):'<div class="empty">Nenhuma aplicação preparada.</div>');
+
   const records=(pipeline.records||[]).slice().reverse();
   document.getElementById('pipeline').innerHTML=records.length?records.slice(0,20).map(o=>'<div class="row"><strong>'+esc(o.title)+'</strong><div class="muted">'+esc(o.company??"")+' • '+esc(o.category??"")+'</div><span class="pill">score: '+esc(o.score??"—")+'</span><span class="pill">'+esc(o.stage??o.status)+'</span><span class="pill">estimado: '+esc(o.estimatedRevenue??0)+' '+esc(o.market??"BR")+'</span>'+(o.applicationUrl?'<div><a href="'+esc(o.applicationUrl)+'" target="_blank" rel="noopener">Abrir oportunidade</a></div>':'')+(o.proposal?.content?'<div class="muted" style="margin-top:6px">Proposta pronta para revisão/uso: '+esc(o.proposal.status)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhuma oportunidade qualificada ainda.</div>';
 
-  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:recoveryState,guardrails:g,revenue:rev,executionPipeline:pipeline,realCapital:realCapital,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
+  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:recoveryState,guardrails:g,revenue:rev,executionPipeline:pipeline,applications:s.applications,browser:s.browser,realCapital:realCapital,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
 }
 refresh();setInterval(refresh,2000);
