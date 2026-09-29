@@ -55,6 +55,7 @@ import { configuredGlobalSources } from "./global-opportunity-sources.js";
 import { DeliverableEngine } from "./deliverable-engine.js";
 import { GenerationProvider } from "./generation-provider.js";
 import { RealCapital } from "./real-capital.js";
+import { RevenueExecutionPipeline } from "./revenue-execution-pipeline.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -125,6 +126,8 @@ const failureMemory = new FailureMemory(saved?.failureMemory ?? []);
 const opportunityEngine = new OpportunityEngine({ evaluator: evaluateOpportunity, maxQueue: 10, economicMemory, failureMemory, riskMemory });
 
 const revenueEngine = new RevenueEngine(saved?.revenueEngine ?? {});
+const executionPipeline = new RevenueExecutionPipeline({ generator: generationProvider });
+executionPipeline.restore(saved?.executionPipeline?.records ?? []);
 const paymentAdapter = new PaymentAdapter({ mode: revenueEngine.mode });
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
@@ -367,6 +370,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
       state.realCapital = realCapital.snapshot();
       state.revenueEngine = revenueEngine.snapshot();
       state.deliverables = deliverableEngine.snapshot();
+      state.executionPipeline = executionPipeline.snapshot();
       await persistence.save(state);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, capitalFunding: true, capital: realCapital.snapshot() }));
@@ -472,8 +476,19 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   const requestedOfferLimit = paymentAdapter.liveAuthorized && liveCheckoutEnabled
     ? liveCheckoutMaxPerCycle
     : 5;
+  const qualifiedOpportunities = [];
+  for (const item of opportunityBatch) {
+    const opportunity = { ...item.opportunity, score: item.evaluation?.viabilityScore ?? item.opportunity?.score ?? 0 };
+    const pipelineRecord = executionPipeline.qualify(opportunity, item.evaluation ?? {});
+    if (!pipelineRecord.duplicate && pipelineRecord.status === "QUALIFIED") {
+      await executionPipeline.prepareProposal(pipelineRecord, opportunity);
+    }
+    if (pipelineRecord.status === "PROPOSAL_READY" || pipelineRecord.status === "AWAITING_PAYMENT") {
+      qualifiedOpportunities.push({ ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id });
+    }
+  }
   const revenueOffers = revenueEngine.cycle({
-    opportunities: opportunityBatch.map((item) => ({ ...item.opportunity, score: item.score ?? item.opportunity?.score ?? 0.5 })),
+    opportunities: qualifiedOpportunities,
     maxOffers: requestedOfferLimit
   });
   for (const offer of revenueOffers) {
@@ -487,6 +502,8 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
         continue;
       }
       const payment = revenueEngine.createPaymentIntent(offer);
+      const pipelineRecord = executionPipeline.records.find((item) => item.id === offer.pipelineId || item.key === String(offer.sourceUrl ?? "").toLowerCase());
+      if (pipelineRecord) executionPipeline.attachPayment(pipelineRecord, payment.id);
       if (paymentAdapter.liveAuthorized) lastLiveCheckoutAt = Date.now();
       const checkout = await paymentAdapter.createCheckout({
         paymentId: payment.id,
