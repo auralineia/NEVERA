@@ -171,19 +171,31 @@ export class PaymentAdapter {
     });
   }
 
-  parseWebhook(rawBody) {
+  async parseWebhook(rawBody) {
     const event = JSON.parse(rawBody.toString("utf8"));
+    if (this.provider === "MERCADOPAGO") {
+      const providerPaymentId = event.data?.id ?? event.id ?? null;
+      if (!providerPaymentId) return { paymentId: null, status: "IGNORED", eventType: String(event.type ?? ""), providerPaymentId: null };
+      const response = await fetch(`${MERCADO_PAGO_API}/v1/payments/${encodeURIComponent(providerPaymentId)}`, { headers: { authorization: `Bearer ${this.mercadoPagoAccessToken}` } });
+      if (!response.ok) throw new Error(`MERCADO_PAGO_PAYMENT_HTTP_${response.status}`);
+      const payment = await response.json();
+      const status = String(payment.status ?? "").toLowerCase();
+      return {
+        paymentId: payment.external_reference ?? payment.metadata?.neveraPaymentId ?? null,
+        status: status === "approved" ? "SUCCEEDED" : status.toUpperCase(),
+        gross: payment.transaction_amount ?? null,
+        fees: payment.fee_details?.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) ?? 0,
+        currency: payment.currency_id ?? "BRL",
+        providerPaymentId: String(providerPaymentId),
+        eventType: String(event.type ?? "payment"),
+        capitalFunding: Boolean(payment.metadata?.capitalFunding)
+      };
+    }
     const type = String(event.type ?? "").toLowerCase();
     const object = event.data?.object ?? {};
-
     return {
-      paymentId: object.metadata?.neveraPaymentId
-        ?? object.metadata?.paymentId
-        ?? event.metadata?.neveraPaymentId
-        ?? null,
-      status: type === "payment_intent.succeeded" || type === "checkout.session.completed"
-        ? "SUCCEEDED"
-        : type.toUpperCase(),
+      paymentId: object.metadata?.neveraPaymentId ?? object.metadata?.paymentId ?? event.metadata?.neveraPaymentId ?? null,
+      status: type === "payment_intent.succeeded" || type === "checkout.session.completed" ? "SUCCEEDED" : type.toUpperCase(),
       gross: object.amount_received ?? object.amount_total ?? object.amount ?? null,
       fees: 0,
       currency: object.currency ?? null,
