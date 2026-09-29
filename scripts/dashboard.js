@@ -38,10 +38,12 @@ function publicState(state) {
   const payments = Array.isArray(revenueEngine.paymentIntents) ? revenueEngine.paymentIntents : [];
   const opportunities = Array.isArray(state.publicOpportunities) ? state.publicOpportunities : [];
   const realCapital = state.realCapital ?? {};
+  const executionPipeline = state.executionPipeline ?? { stats: {}, records: [] };
 
   return {
     balance: state.balance,
     realCapital,
+    executionPipeline,
     cycle: state.cycle,
     status: state.status ?? state.lastResult?.agent?.status ?? "UNKNOWN",
     metrics: state.metrics ?? null,
@@ -108,7 +110,7 @@ pre{white-space:pre-wrap;overflow:auto;max-height:420px}
 <h1>NEVERA</h1><div class="sub">Operational Control • atualização automática</div>
 <div id="cards" class="grid"></div>
 <div class="card wide"><h3>Oportunidades detectadas</h3><div id="opportunities" class="rows">carregando...</div></div>
-<div class="card wide"><h3>Ofertas e checkouts</h3><div id="payments" class="rows">carregando...</div></div>
+<div class="card wide"><h3>Ofertas e checkouts</h3><div id="payments" class="rows">carregando...</div></div>\n<div class="card wide"><h3>Pipeline de receita</h3><div id="pipeline" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Operação</h3><pre id="details">carregando...</pre></div>
 <script>
 function card(k,v,c=""){return '<div class="card '+c+'"><div class="label">'+k+'</div><div class="value">'+String(v??"—")+'</div></div>'}
@@ -118,12 +120,12 @@ async function refresh(){
   await fetch('/capital/reconcile',{cache:'no-store'}).catch(()=>null);
   const r=await fetch('/state',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
   const s=await r.json(), e=s.metrics||{},g=s.guardrails||{},rt=s.runtime||{},recoveryState=s.recovery||{}, realCapital=s.realCapital||{}, rev=s.revenue||{};
-  const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—";
+  const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—", pipeline=s.executionPipeline||{stats:{},records:[]};
   document.getElementById('cards').innerHTML=[
    card("Saldo interno",s.balance),card("Capital real",((realCapital.balance??0).toFixed?.(2)??realCapital.balance??0)+" BRL",realCapital.balance>0?"ok":"warn"),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Receita líquida",e.net),
    card("Drawdown",e.maxDrawdown),card("Perdas",g.losses),card("Cooldown",g.cooldownRemaining,g.cooldownRemaining>0?"warn":"ok"),
    card("Receita confirmada",rev.netRevenue??0),card("Pagamentos",rev.paymentsConfirmed??0),card("Capital status",realCapital.fundingStatus??"AGUARDANDO"),
-   card("Live",rev.liveAuthorized?"ATIVO":"BLOQUEADO",rev.liveAuthorized?"ok":"warn"),card("Restarts",recoveryState.restarts??0,recoveryState.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok")
+   card("Live",rev.liveAuthorized?"ATIVO":"BLOQUEADO",rev.liveAuthorized?"ok":"warn"),card("Restarts",recoveryState.restarts??0,recoveryState.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok"),card("Qualificadas",pipeline.stats?.qualified??0),card("Propostas",pipeline.stats?.proposalsReady??0),card("Em execução",pipeline.stats?.inProgress??0),card("Entregues",pipeline.stats?.delivered??0)
   ].join('');
 
   const ops=(s.opportunities||[]).slice().reverse();
@@ -132,7 +134,10 @@ async function refresh(){
   const payments=(rev.payments||[]).slice().reverse();
   document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+(p.checkoutError?'<div class="muted">Erro: '+esc(p.checkoutError)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
 
-  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:recoveryState,guardrails:g,revenue:rev,realCapital:realCapital,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
+  const records=(pipeline.records||[]).slice().reverse();
+  document.getElementById('pipeline').innerHTML=records.length?records.slice(0,20).map(o=>'<div class="row"><strong>'+esc(o.title)+'</strong><div class="muted">'+esc(o.company??"")+' • '+esc(o.category??"")+'</div><span class="pill">score: '+esc(o.score??"—")+'</span><span class="pill">'+esc(o.stage??o.status)+'</span><span class="pill">estimado: '+esc(o.estimatedRevenue??0)+' '+esc(o.market??"BR")+'</span>'+(o.applicationUrl?'<div><a href="'+esc(o.applicationUrl)+'" target="_blank" rel="noopener">Abrir oportunidade</a></div>':'')+(o.proposal?.content?'<div class="muted" style="margin-top:6px">Proposta pronta para revisão/uso: '+esc(o.proposal.status)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhuma oportunidade qualificada ainda.</div>';
+
+  document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:recoveryState,guardrails:g,revenue:rev,executionPipeline:pipeline,realCapital:realCapital,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
 }
 refresh();setInterval(refresh,2000);
