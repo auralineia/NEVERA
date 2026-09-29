@@ -142,7 +142,7 @@ function proxyPaymentRequest(req,res){
 }
 
 createServer(async(req,res)=>{
- if(req.url==="/payment-status"||req.url==="/health"||req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url==="/webhooks/payments"){proxyPaymentRequest(req,res);return}
+ if(req.url==="/payment-status"||req.url==="/health"||req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url==="/webhooks/payments"||req.url.startsWith("/generation-test")){proxyPaymentRequest(req,res);return}
  if(!authorized(req)){unauthorized(res);return}
  if(req.url==="/health"){
   try{await readFile(statePath,"utf8");res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});res.end(JSON.stringify({ok:true,stateAvailable:true,checkedAt:new Date().toISOString()}))}
