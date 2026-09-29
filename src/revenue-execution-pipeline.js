@@ -185,9 +185,11 @@ export class RevenueExecutionPipeline {
     if (!record) return null;
     record.paymentId = paymentId ?? record.paymentId;
     record.fulfillmentId = fulfillmentId ?? record.fulfillmentId;
+    const wasAlreadyPaid = record.status === "PAID";
     record.status = "PAID";
     record.stage = classifyStage("PAID");
-    this.stats.inProgress += 1;
+    if (!wasAlreadyPaid) this.stats.inProgress += 1;
+    record.updatedAt = new Date().toISOString();
     return record;
   }
 
@@ -203,11 +205,21 @@ export class RevenueExecutionPipeline {
     return record;
   }
 
+  markFulfillmentFailed(record, reason) {
+    if (!record) return null;
+    record.status = "FULFILLMENT_FAILED";
+    record.stage = "FULFILLMENT_FAILED";
+    record.fulfillmentError = String(reason ?? "FULFILLMENT_FAILED").slice(0, 500);
+    record.updatedAt = new Date().toISOString();
+    return record;
+  }
+
   markPaymentReceived(record) {
     if (!record) return null;
     record.status = "PAID";
     record.stage = "PAYMENT_RECEIVED";
     this.stats.paid += 1;
+    record.updatedAt = new Date().toISOString();
     return record;
   }
 
