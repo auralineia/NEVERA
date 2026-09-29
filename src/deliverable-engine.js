@@ -27,6 +27,7 @@ export class DeliverableEngine {
       id, status: "DELIVERED", type: artifact.type,
       title: clean(opportunity.title ?? opportunity.name, "NEVERA service"),
       category: opportunity.category ?? "DIGITAL_SERVICES",
+      executionMode: generated ? "AI_PRODUCTION" : "RULE_BASED_FALLBACK",
       files, sourceUrl: opportunity.sourceUrl ?? opportunity.url ?? null,
       createdAt: new Date().toISOString()
     };
@@ -47,10 +48,14 @@ export class DeliverableEngine {
     if (!this.generator?.configured) return null;
     const evidence = source?.data ? JSON.stringify(source.data).slice(0, 12000) : (source?.preview ?? "");
     const prompt = [
-      "Create the actual client work product for this opportunity.",
+      "Create the actual client work product for this opportunity, not a generic template.",
       "Do not claim external actions were performed.",
-      "Use only the supplied evidence; clearly mark assumptions.",
-      "Return only the deliverable content, ready for client review.",
+      "Use only the supplied evidence; clearly mark assumptions and missing inputs.",
+      "For research/data work, provide concrete findings, tables or structured analysis when evidence supports them.",
+      "For content work, write the requested copy rather than describing how to write it.",
+      "For software/app work, provide an implementation-ready specification and code when the available evidence supports a concrete implementation.",
+      "For automation work, provide a concrete workflow, inputs, outputs, validation and implementation details.",
+      "Return only the client-facing deliverable content, ready for review. Do not include internal reasoning."
       "Fulfillment ID: " + id,
       "Title: " + (opportunity.title ?? opportunity.name ?? ""),
       "Category: " + (opportunity.category ?? ""),
