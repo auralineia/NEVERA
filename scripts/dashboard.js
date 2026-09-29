@@ -115,6 +115,7 @@ function card(k,v,c=""){return '<div class="card '+c+'"><div class="label">'+k+'
 function esc(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 async function refresh(){
  try{
+  await fetch('/capital/reconcile',{cache:'no-store'}).catch(()=>null);
   const r=await fetch('/state',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
   const s=await r.json(), e=s.metrics||{},g=s.guardrails||{},rt=s.runtime||{},recoveryState=s.recovery||{}, realCapital=s.realCapital||{}, rev=s.revenue||{};
   const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—";
