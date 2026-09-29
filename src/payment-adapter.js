@@ -69,6 +69,7 @@ export class PaymentAdapter {
     const params = formEncode([
       ["mode", "payment"],
       ["payment_method_types[0]", "card"],
+      ["payment_method_types[1]", "pix"],
       ["success_url", successUrl],
       ["cancel_url", cancelUrl],
       ["line_items[0][price_data][currency]", String(currency).toLowerCase()],
