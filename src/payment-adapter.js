@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const STRIPE_API = "https://api.stripe.com/v1";
+const MERCADO_PAGO_API = "https://api.mercadopago.com";
 
 function stripeHeaders(secret) {
   return {
@@ -30,13 +31,11 @@ export class PaymentAdapter {
     this.provider = String(process.env.NEVERA_PAYMENT_PROVIDER ?? "HTTP").toUpperCase();
     this.apiSecret = String(process.env.NEVERA_PAYMENT_API_SECRET ?? "").trim();
     this.webhookSecret = String(process.env.NEVERA_PAYMENT_WEBHOOK_SECRET ?? "").trim();
+    this.mercadoPagoAccessToken = String(process.env.NEVERA_MERCADO_PAGO_ACCESS_TOKEN ?? "").trim();
+    this.mercadoPagoWebhookSecret = String(process.env.NEVERA_MERCADO_PAGO_WEBHOOK_SECRET ?? "").trim();
     this.returnUrl = String(process.env.NEVERA_PAYMENT_RETURN_URL ?? "").trim();
     this.realMoney = String(process.env.NEVERA_REAL_MONEY ?? "false").toLowerCase() === "true";
-    this.liveAuthorized = this.provider === "STRIPE"
-      && this.mode === "LIVE"
-      && this.realMoney
-      && Boolean(this.apiSecret)
-      && Boolean(this.webhookSecret);
+    this.liveAuthorized = this.mode === "LIVE" && this.realMoney && ((this.provider === "STRIPE" && Boolean(this.apiSecret) && Boolean(this.webhookSecret)) || (this.provider === "MERCADOPAGO" && Boolean(this.mercadoPagoAccessToken) && Boolean(this.mercadoPagoWebhookSecret)));
   }
 
   status() {
@@ -46,6 +45,7 @@ export class PaymentAdapter {
       configured: Boolean(this.apiSecret && this.webhookSecret),
       liveAuthorized: this.liveAuthorized,
       realMoney: this.realMoney,
+      mercadoPagoConfigured: Boolean(this.mercadoPagoAccessToken && this.mercadoPagoWebhookSecret),
       checkout: this.liveAuthorized ? "READY" : "DISABLED"
     };
   }
@@ -57,6 +57,23 @@ export class PaymentAdapter {
       throw new Error("LIVE_PAYMENT_NOT_AUTHORIZED");
     }
 
+    if (this.provider === "MERCADOPAGO") {
+      const base = this.returnUrl ? this.returnUrl.replace(/\/$/, "") : undefined;
+      const response = await fetch(`${MERCADO_PAGO_API}/checkout/preferences`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${this.mercadoPagoAccessToken}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          items: [{ id: offerId, title: title || "NEVERA", quantity: 1, unit_price: Number(amount), currency_id: String(currency).toUpperCase() }],
+          external_reference: paymentId,
+          notification_url: base ? `${base}/webhooks/payments?provider=mercadopago` : undefined,
+          back_urls: base ? { success: `${base}/payment/success?payment_id=${encodeURIComponent(paymentId)}`, failure: `${base}/payment/cancel?payment_id=${encodeURIComponent(paymentId)}`, pending: `${base}/payment/success?payment_id=${encodeURIComponent(paymentId)}` } : undefined,
+          metadata: { neveraPaymentId: paymentId, neveraOfferId: offerId, channel: metadata.channel, market: metadata.market, capitalFunding: Boolean(metadata.capitalFunding) }
+        })
+      });
+      if (!response.ok) { const detail = await response.text(); throw new Error(`MERCADO_PAGO_CHECKOUT_HTTP_${response.status}:${detail.slice(0, 300)}`); }
+      const payload = await response.json();
+      return { mode: "LIVE", provider: "MERCADOPAGO", paymentId, status: "CHECKOUT_CREATED", checkoutUrl: payload.init_point ?? null, providerPaymentId: payload.id ?? null };
+    }
     if (this.provider !== "STRIPE") throw new Error("UNSUPPORTED_PAYMENT_PROVIDER");
 
     const successUrl = this.returnUrl
@@ -109,7 +126,23 @@ export class PaymentAdapter {
     };
   }
 
-  verifyWebhook(rawBody, signature) {
+  verifyWebhook(rawBody, signature, context = {}) {
+    if (this.provider === "MERCADOPAGO") {
+      if (!this.mercadoPagoWebhookSecret || !signature) return false;
+      const parts = Object.fromEntries(String(signature).split(",").map((part) => part.split("=", 2)).filter(([k,v]) => k && v).map(([k,v]) => [k.trim(), v.trim()]));
+      const ts = parts.ts;
+      const supplied = parts.v1;
+      const requestUrl = new URL(context.url ?? "/", "https://nevera.local");
+      const dataId = (requestUrl.searchParams.get("data.id") ?? "").toLowerCase();
+      const requestId = String(context.requestId ?? "");
+      if (!ts || !supplied || !dataId || !requestId) return false;
+      const age = Math.abs(Date.now() - Number(ts) * 1000);
+      if (!Number.isFinite(age) || age > 300000) return false;
+      const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+      const expected = createHmac("sha256", this.mercadoPagoWebhookSecret).update(manifest).digest("hex");
+      if (supplied.length !== expected.length) return false;
+      return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
+    }
     if (!this.webhookSecret || !signature) return false;
 
     const header = String(signature);
