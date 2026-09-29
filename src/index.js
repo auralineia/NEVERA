@@ -179,6 +179,39 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {
+    const requestUrl = new URL(req.url, "http://nevera.local");
+    const token = requestUrl.searchParams.get("token") ?? "";
+    const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
+    if (!expected || token !== expected) {
+      res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
+      return;
+    }
+    if (realCapital.balance > 0) {
+      res.writeHead(409, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ error: "REAL_CAPITAL_ALREADY_FUNDED", capital: realCapital.snapshot() }));
+      return;
+    }
+    try {
+      const paymentId = "CAPITAL-" + Date.now().toString(36).toUpperCase();
+      const checkout = await paymentAdapter.createCheckout({
+        paymentId,
+        offerId: "CAPITAL-FUNDING",
+        amount: Number(process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10),
+        currency: "BRL",
+        title: "NEVERA — Capital inicial",
+        metadata: { channel: "CAPITAL_FUNDING", market: "BR", capitalFunding: true }
+      });
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: true, purpose: "REAL_CAPITAL_FUNDING", amount: Number(process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10), currency: "BRL", checkoutUrl: checkout.checkoutUrl, paymentId }));
+    } catch (error) {
+      res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify({ ok: false, error: String(error?.message ?? error) }));
+    }
+    return;
+  }
+
   if (req.method === "GET" && req.url === "/payment-status") {
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(paymentAdapter.status()));
@@ -273,10 +306,24 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true, ignored: "NO_NEVERA_PAYMENT_ID", eventType: event.eventType }));
       return;
     }
+    if (event.capitalFunding) {
+      if (realCapital.balance <= 0) {
+        realCapital.fund(Number(event.gross ?? process.env.NEVERA_REAL_CAPITAL_TARGET ?? 10), "STRIPE_CAPITAL_FUNDING");
+      }
+      const state = (await persistence.load()) ?? {};
+      state.realCapital = realCapital.snapshot();
+      state.revenueEngine = revenueEngine.snapshot();
+      state.deliverables = deliverableEngine.snapshot();
+      await persistence.save(state);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, capitalFunding: true, capital: realCapital.snapshot() }));
+      return;
+    }
+    const existingPayment = revenueEngine.paymentIntents.find((item) => item.id === event.paymentId);
     const confirmed = revenueEngine.confirmPayment(event.paymentId, { gross: event.gross, fees: event.fees });
     const offer = revenueEngine.offers.find((item) => item.id === confirmed.offerId);
     let fulfillment = null;
-    if (offer?.opportunity) {
+    if (!existingPayment?.fulfillmentId && offer?.opportunity) {
       fulfillment = await deliverableEngine.fulfill(offer.opportunity);
       confirmed.fulfillmentId = fulfillment.id;
       confirmed.fulfillmentStatus = fulfillment.status;
@@ -284,6 +331,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     const state = (await persistence.load()) ?? {};
     state.revenueEngine = revenueEngine.snapshot();
     state.deliverables = deliverableEngine.snapshot();
+    state.realCapital = realCapital.snapshot();
     state.realCapital = realCapital.snapshot();
     await persistence.save(state);
     res.writeHead(200, { "content-type": "application/json" });
