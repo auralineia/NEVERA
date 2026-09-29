@@ -2,7 +2,7 @@ export class GenerationProvider {
   constructor({ apiUrl = process.env.NEVERA_LLM_API_URL ?? "", apiKey = process.env.NEVERA_LLM_API_KEY ?? "", model = process.env.NEVERA_LLM_MODEL ?? "gpt-5.6-mini" } = {}) {
     this.apiUrl = String(apiUrl).replace(/\/$/, "");
     this.apiKey = String(apiKey).trim();
-    this.model = String(model);
+    const configuredModel = String(model);\n    this.model = configuredModel === "llama-3.3-70b-versatile" ? "openai/gpt-oss-120b" : configuredModel;
   }
 
   get configured() { return Boolean(this.apiUrl && this.apiKey); }
