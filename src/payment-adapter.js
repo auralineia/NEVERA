@@ -50,6 +50,50 @@ export class PaymentAdapter {
     };
   }
 
+  async createPixPayment({ paymentId, amount, title = "NEVERA — Capital inicial", payerEmail, metadata = {} } = {}) {
+    if (!paymentId) throw new Error("PAYMENT_DATA_REQUIRED");
+    if (!this.liveAuthorized || this.provider !== "MERCADOPAGO") throw new Error("MERCADOPAGO_LIVE_NOT_AUTHORIZED");
+    const base = this.returnUrl ? this.returnUrl.replace(/\/$/, "") : undefined;
+    const response = await fetch(MERCADO_PAGO_API + "/v1/payments", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + this.mercadoPagoAccessToken,
+        "content-type": "application/json",
+        "x-idempotency-key": "nevera-pix-" + paymentId
+      },
+      body: JSON.stringify({
+        transaction_amount: Number(amount),
+        description: title,
+        payment_method_id: "pix",
+        external_reference: paymentId,
+        notification_url: base ? base + "/webhooks/payments?provider=mercadopago" : undefined,
+        payer: { email: payerEmail },
+        metadata: {
+          neveraPaymentId: paymentId,
+          channel: metadata.channel ?? "CAPITAL_FUNDING",
+          market: metadata.market ?? "BR",
+          capitalFunding: Boolean(metadata.capitalFunding)
+        }
+      })
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error("MERCADO_PAGO_PIX_HTTP_" + response.status + ":" + detail.slice(0, 500));
+    }
+    const payload = await response.json();
+    const tx = payload.point_of_interaction?.transaction_data ?? {};
+    return {
+      mode: "LIVE",
+      provider: "MERCADOPAGO",
+      paymentId,
+      providerPaymentId: payload.id ?? null,
+      status: String(payload.status ?? "PENDING"),
+      qrCode: tx.qr_code ?? null,
+      qrCodeBase64: tx.qr_code_base64 ?? null,
+      ticketUrl: tx.ticket_url ?? null
+    };
+  }
+
   async createCheckout({ paymentId, offerId, amount, currency, title, metadata = {} } = {}) {
     if (!paymentId || !offerId) throw new Error("PAYMENT_DATA_REQUIRED");
 
@@ -188,7 +232,7 @@ export class PaymentAdapter {
         currency: payment.currency_id ?? "BRL",
         providerPaymentId: String(providerPaymentId),
         eventType: String(event.type ?? "payment"),
-        capitalFunding: Boolean(payment.metadata?.capitalFunding)
+        capitalFunding: Boolean(payment.metadata?.capitalFunding) || String(payment.external_reference ?? "").startsWith("CAPITAL-")
       };
     }
     const type = String(event.type ?? "").toLowerCase();
