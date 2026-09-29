@@ -42,7 +42,7 @@ export class RevenueExecutionPipeline {
         if (item.status === "AWAITING_ACCEPTANCE") acc.awaitingAcceptance += 1;
         if (item.status === "IN_PROGRESS") acc.inProgress += 1;
         if (item.status === "DELIVERED") acc.delivered += 1;
-        if (item.status === "PAID") acc.paid += 1;
+        if (item.status === "PAID" || item.status === "DELIVERED") acc.paid += 1;
         acc.estimatedRevenue += money(item.estimatedRevenue);
         return acc;
       }, { ...this.stats });
