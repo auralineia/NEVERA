@@ -384,6 +384,11 @@ const paymentWebhookServer = createServer(async (req, res) => {
       fulfillment = await deliverableEngine.fulfill(offer.opportunity);
       confirmed.fulfillmentId = fulfillment.id;
       confirmed.fulfillmentStatus = fulfillment.status;
+      const pipelineRecord = executionPipeline.records.find((item) => item.paymentId === confirmed.id || item.id === offer?.pipelineId);
+      if (pipelineRecord) {
+        executionPipeline.markPaid(pipelineRecord, confirmed.id, fulfillment.id);
+        executionPipeline.markDelivered(pipelineRecord, fulfillment.id);
+      }
     }
     const state = (await persistence.load()) ?? {};
     state.revenueEngine = revenueEngine.snapshot();
@@ -483,7 +488,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     if (!pipelineRecord.duplicate && pipelineRecord.status === "QUALIFIED") {
       await executionPipeline.prepareProposal(pipelineRecord, opportunity);
     }
-    if (pipelineRecord.status === "PROPOSAL_READY" || pipelineRecord.status === "AWAITING_PAYMENT") {
+    if (pipelineRecord.status === "PROPOSAL_READY") {
       qualifiedOpportunities.push({ ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id });
     }
   }
@@ -502,8 +507,6 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
         continue;
       }
       const payment = revenueEngine.createPaymentIntent(offer);
-      const pipelineRecord = executionPipeline.records.find((item) => item.id === offer.pipelineId || item.key === String(offer.sourceUrl ?? "").toLowerCase());
-      if (pipelineRecord) executionPipeline.attachPayment(pipelineRecord, payment.id);
       if (paymentAdapter.liveAuthorized) lastLiveCheckoutAt = Date.now();
       const checkout = await paymentAdapter.createCheckout({
         paymentId: payment.id,
