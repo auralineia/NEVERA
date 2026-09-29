@@ -155,7 +155,9 @@ const paymentWebhookServer = createServer(async (req, res) => {
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? "";
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
-    if (!expected || token !== expected) {
+    const authorization = String(req.headers.authorization ?? "");
+    const authorizedByHeader = authorization === `Bearer ${expected}` || (authorization.startsWith("Basic ") && (() => { try { const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8"); return decoded.endsWith(`:${expected}`); } catch { return false; } })());
+    if (!expected || (token !== expected && !authorizedByHeader)) {
       res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify({ error: "UNAUTHORIZED" }));
       return;
