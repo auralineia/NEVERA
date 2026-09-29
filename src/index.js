@@ -394,7 +394,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     state.revenueEngine = revenueEngine.snapshot();
     state.deliverables = deliverableEngine.snapshot();
     state.realCapital = realCapital.snapshot();
-    state.realCapital = realCapital.snapshot();
+    state.executionPipeline = executionPipeline.snapshot();
     await persistence.save(state);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, paymentId: confirmed.id, status: confirmed.status }));
@@ -692,6 +692,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     sandbox: realSandbox.snapshot(),
     taskExecutor: taskExecutor.snapshot(),
     deliverables: deliverableEngine.snapshot(),
+    executionPipeline: executionPipeline.snapshot(),
     generation: generationProvider.status(),
     telemetry: telemetry.snapshot(),
     runtime: runtime.snapshot(),
@@ -699,6 +700,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     publicTasks,
     opportunityStats,
     revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
+    executionPipeline: executionPipeline.snapshot(),
     realCapital: realCapital.snapshot(),
     opportunityQueue: opportunityEngine.snapshot(),
     economicMemory: economicMemory.export(),
