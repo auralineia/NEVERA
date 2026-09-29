@@ -42,7 +42,7 @@ export class PaymentAdapter {
     return {
       mode: this.mode,
       provider: this.provider,
-      configured: Boolean(this.apiSecret && this.webhookSecret),
+      configured: this.provider === "MERCADOPAGO" ? Boolean(this.mercadoPagoAccessToken && this.mercadoPagoWebhookSecret) : Boolean(this.apiSecret && this.webhookSecret),
       liveAuthorized: this.liveAuthorized,
       realMoney: this.realMoney,
       mercadoPagoConfigured: Boolean(this.mercadoPagoAccessToken && this.mercadoPagoWebhookSecret),
