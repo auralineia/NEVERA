@@ -183,7 +183,8 @@ createServer(async(req,res)=>{
   }
   return;
 }
-if(req.url==="/payment-status"||req.url==="/health"||req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url.startsWith("/capital/funding-checkout")||req.url.startsWith("/capital/reconcile")||req.url.startsWith("/webhooks/payments")){proxyPaymentRequest(req,res);return}
+ if(req.url==="/latest-checkout"||req.url.startsWith("/pay/")||req.url.startsWith("/capital/funding-checkout")||req.url.startsWith("/capital/reconcile")||req.url.startsWith("/webhooks/payments")){res.writeHead(410,{"content-type":"application/json","cache-control":"no-store"});res.end(JSON.stringify({ok:false,mode:"SIMULATION_ONLY",error:"REAL_PAYMENTS_DISABLED"}));return}
+ if(req.url==="/payment-status"||req.url==="/health"){proxyPaymentRequest(req,res);return}
  if(!authorized(req)){unauthorized(res);return}
  if(req.url==="/health"){
   try{await readFile(statePath,"utf8");res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});res.end(JSON.stringify({ok:true,stateAvailable:true,checkedAt:new Date().toISOString()}))}
