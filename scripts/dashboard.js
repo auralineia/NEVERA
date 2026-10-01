@@ -37,7 +37,7 @@ function publicState(state) {
   const offers = Array.isArray(revenueEngine.offers) ? revenueEngine.offers : [];
   const payments = Array.isArray(revenueEngine.paymentIntents) ? revenueEngine.paymentIntents : [];
   const opportunities = Array.isArray(state.publicOpportunities) ? state.publicOpportunities : [];
-  const realCapital = state.realCapital ?? {};
+  const realCapital = { mode: "SIMULATION_ONLY", balance: 0, totalFunded: 0, totalSpent: 0, totalReturned: 0, fundingStatus: "SIMULATION_ONLY", transactions: [] };
   const executionPipeline = state.executionPipeline ?? { stats: {}, records: [] };
   const applications = Array.isArray(state.applications) ? state.applications : [];
   const browser = state.browser ?? {};
@@ -76,9 +76,9 @@ function publicState(state) {
       status: item.status ?? "AVAILABLE"
     })),
     revenue: {
-      mode: revenueEngine.mode ?? "SIMULATION",
+      mode: "SIMULATION",
       provider: revenueEngine.paymentAdapter?.provider ?? "HTTP",
-      liveAuthorized: revenueEngine.paymentAdapter?.liveAuthorized ?? false,
+      liveAuthorized: false,
       offersCreated: revenueEngine.stats?.offersCreated ?? 0,
       paymentsPending: revenueEngine.stats?.paymentsPending ?? 0,
       paymentsConfirmed: revenueEngine.stats?.paymentsConfirmed ?? 0,
@@ -115,10 +115,10 @@ h1{margin:0}.sub{color:#888;margin:4px 0 20px}.grid{display:grid;grid-template-c
 a{color:#9ad;text-decoration:none}a:hover{text-decoration:underline}.empty{color:#777;padding:12px}
 pre{white-space:pre-wrap;overflow:auto;max-height:420px}
 </style></head><body>
-<h1>NEVERA</h1><div class="sub">Operational Control • atualização automática</div>
+<h1>NEVERA</h1><div class="sub">Painel operacional • economia 100% simulada</div>
 <div id="cards" class="grid"></div>
 <div class="card wide"><h3>Oportunidades detectadas</h3><div id="opportunities" class="rows">carregando...</div></div>
-<div class="card wide"><h3>Ofertas e checkouts</h3><div id="payments" class="rows">carregando...</div></div>\n<div class="card wide"><h3>Pipeline de receita</h3><div id="pipeline" class="rows">carregando...</div></div>
+<div class="card wide"><h3>Ofertas simuladas</h3><div id="payments" class="rows">carregando...</div></div>\n<div class="card wide"><h3>Pipeline de receita</h3><div id="pipeline" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Aplicações e navegador</h3><div id="applications" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Operação</h3><pre id="details">carregando...</pre></div>
 <script>
@@ -131,7 +131,7 @@ async function refresh(){
   const s=await r.json(), e=s.metrics||{},g=s.guardrails||{},rt=s.runtime||{},recoveryState=s.recovery||{}, realCapital=s.realCapital||{}, rev=s.revenue||{};
   const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—", pipeline=s.executionPipeline||{stats:{},records:[]};
   document.getElementById('cards').innerHTML=[
-   card("Saldo interno",s.balance),card("Capital real",((realCapital.balance??0).toFixed?.(2)??realCapital.balance??0)+" BRL",realCapital.balance>0?"ok":"warn"),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Receita líquida",e.net),
+   card("Saldo virtual",s.balance),card("Capital real","DESATIVADO","warn"),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Resultado simulado",e.net),
    card("Drawdown",e.maxDrawdown),card("Perdas",g.losses),card("Cooldown",g.cooldownRemaining,g.cooldownRemaining>0?"warn":"ok"),
    card("Receita confirmada",rev.netRevenue??0),card("Pagamentos",rev.paymentsConfirmed??0),card("Capital status",realCapital.fundingStatus??"AGUARDANDO"),
    card("Live",rev.liveAuthorized?"ATIVO":"BLOQUEADO",rev.liveAuthorized?"ok":"warn"),card("Restarts",recoveryState.restarts??0,recoveryState.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok"),card("Qualificadas",pipeline.stats?.qualified??0),card("Propostas",pipeline.stats?.proposalsReady??0),card("Em execução",pipeline.stats?.inProgress??0),card("Entregues",pipeline.stats?.delivered??0)
