@@ -194,8 +194,9 @@ export class RevenueEngine {
       paymentIntents: this.paymentIntents.slice(-50),
       ledger: this.ledger.slice(-100),
       stats: { ...this.stats },
-      realPayments: true,
-      providerStatus: "LIVE_CHECKOUT_READY"
+      realPayments: false,
+      simulatedPayments: true,
+      providerStatus: "SIMULATION_ONLY"
     };
   }
 }
