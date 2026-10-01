@@ -60,6 +60,7 @@ import { BrowserWorker } from "./browser-worker.js";
 import { ApplicationEngine } from "./application-engine.js";
 import { createPlatformRegistry } from "./platform-adapter.js";
 import { ApplicationPolicy } from "./application-policy.js";
+import { runParallelAgents, createAgentRoster } from "./parallel-agents.js";
 
 
 const persistence = new Persistence(process.env.NEVERA_STATE_FILE ?? "./nevera-state.json");
@@ -203,6 +204,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
       res.end(JSON.stringify({
         ok: Boolean(content),
+        agents: { concurrency: Number(process.env.NEVERA_AGENT_CONCURRENCY ?? 4), roster: createAgentRoster() },
         generation: generationProvider.status(),
         content: content ?? null
       }));
@@ -549,21 +551,31 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
     ? liveCheckoutMaxPerCycle
     : 5;
   const qualifiedOpportunities = [];
-  for (const item of opportunityBatch) {
+  const preparedCandidates = opportunityBatch.map((item) => {
     const opportunity = { ...item.opportunity, score: item.evaluation?.viabilityScore ?? item.opportunity?.score ?? 0 };
     const pipelineRecord = executionPipeline.qualify(opportunity, item.evaluation ?? {});
-    if (!pipelineRecord.duplicate && pipelineRecord.status === "QUALIFIED") {
+    return { opportunity, pipelineRecord };
+  });
+  await runParallelAgents(preparedCandidates.filter(({ pipelineRecord }) => !pipelineRecord.duplicate && pipelineRecord.status === "QUALIFIED"), {
+    concurrency: Number(process.env.NEVERA_AGENT_CONCURRENCY ?? 4),
+    task: async ({ opportunity, pipelineRecord }) => {
       await executionPipeline.prepareProposal(pipelineRecord, opportunity);
+      return { opportunity, pipelineRecord };
     }
-    if (pipelineRecord.status === "PROPOSAL_READY") {
+  });
+  const proposalCandidates = preparedCandidates.filter(({ pipelineRecord }) => pipelineRecord.status === "PROPOSAL_READY");
+  const proposalResults = await runParallelAgents(proposalCandidates, {
+    concurrency: Number(process.env.NEVERA_AGENT_CONCURRENCY ?? 4),
+    task: async ({ opportunity, pipelineRecord }) => {
       const application = applicationEngine.prepare({
         ...opportunity,
         automationPolicy: opportunity.automationPolicy ?? "DRAFT_ONLY"
       });
       await applicationEngine.generateProposal(application, opportunity);
-      qualifiedOpportunities.push({ ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id, applicationId: application.id });
+      return { ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id, applicationId: application.id };
     }
-  }
+  });
+  qualifiedOpportunities.push(...proposalResults.filter((item) => item && item.ok !== false));
   const revenueOffers = revenueEngine.cycle({
     opportunities: qualifiedOpportunities,
     maxOffers: requestedOfferLimit
