@@ -45,7 +45,7 @@ const SERVICE_PROFILES = {
 
 export class RevenueEngine {
   constructor(saved = {}) {
-    this.mode = String(process.env.NEVERA_PAYMENT_MODE ?? saved.mode ?? "LIVE").toUpperCase();
+    this.mode = "SIMULATION"; // Hard lock: no real-money payment mode.
     this.currency = String(process.env.NEVERA_BASE_CURRENCY ?? saved.currency ?? "USD").toUpperCase();
     this.sequence = Number(saved.sequence ?? 0);
     this.offers = Array.isArray(saved.offers) ? saved.offers : [];
