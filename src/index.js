@@ -204,8 +204,8 @@ const paymentWebhookServer = createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
       res.end(JSON.stringify({
         ok: Boolean(content),
-        agents: { concurrency: Number(process.env.NEVERA_AGENT_CONCURRENCY ?? 4), roster: createAgentRoster(), lastBatchSize: preparedCandidates.length },
-    generation: generationProvider.status(),
+        agents: { concurrency: Number(process.env.NEVERA_AGENT_CONCURRENCY ?? 4), roster: createAgentRoster() },
+        generation: generationProvider.status(),
         content: content ?? null
       }));
     } catch (error) {
