@@ -356,6 +356,9 @@ const paymentWebhookServer = createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && req.url.startsWith("/pay/")) {
+    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CHECKOUT_DISABLED" }));
+    return;
     const paymentId = decodeURIComponent(req.url.slice("/pay/".length).split("?")[0]);
     const payment = revenueEngine.paymentIntents.find((item) => item.id === paymentId);
     const checkoutUrl = payment?.checkout?.checkoutUrl;
@@ -375,7 +378,12 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method !== "POST" || !req.url.startsWith("/webhooks/payments")) {
+  if (req.url.startsWith("/webhooks/payments")) {
+    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_PAYMENT_WEBHOOKS_DISABLED" }));
+    return;
+  }
+  if (req.method !== "POST") {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "NOT_FOUND" }));
     return;
