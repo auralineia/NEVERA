@@ -29,7 +29,9 @@ test("fallback deliverables contain reviewable, evidence-aware work packages", a
       assert.ok(result.content.includes("DRAFT_FOR_HUMAN_REVIEW"));
       assert.ok(result.content.includes("No public source content was retrieved."));
       assert.equal(result.files[0].name, filename);
-      assert.equal(await readFile(result.files[0].filePath, "utf8"), result.content);
+      const persisted = await Promise.all(result.files.map((file) => readFile(file.filePath, "utf8")));
+      assert.deepEqual(persisted, result.files.map((file) => file.name === "README.md" ? persisted[0] : persisted[result.files.indexOf(file)]));
+      assert.equal(result.content, persisted.join("\n\n"));
     }
     assert.equal(engine.snapshot().length, cases.length);
   } finally {
@@ -48,6 +50,7 @@ test("AI-generated work products remain distinguished from fallback drafts", asy
     assert.equal(result.executionMode, "AI_PRODUCTION");
     assert.equal(result.type, "AI_GENERATED_WORK_PRODUCT");
     assert.equal(result.files[0].name, "work-product.md");
+    assert.equal(await readFile(result.files[0].filePath, "utf8"), result.content);
   } finally {
     await rm(baseDir, { recursive: true, force: true });
   }
