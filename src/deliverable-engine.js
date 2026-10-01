@@ -55,7 +55,7 @@ export class DeliverableEngine {
       "For content work, write the requested copy rather than describing how to write it.",
       "For software/app work, provide an implementation-ready specification and code when the available evidence supports a concrete implementation.",
       "For automation work, provide a concrete workflow, inputs, outputs, validation and implementation details.",
-      "Return only the client-facing deliverable content, ready for review. Do not include internal reasoning."
+      "Return only the client-facing deliverable content, ready for review. Do not include internal reasoning.",
       "Fulfillment ID: " + id,
       "Title: " + (opportunity.title ?? opportunity.name ?? ""),
       "Category: " + (opportunity.category ?? ""),
