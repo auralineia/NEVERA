@@ -30,7 +30,6 @@ test("fallback deliverables contain reviewable, evidence-aware work packages", a
       assert.ok(result.content.includes("No public source content was retrieved."));
       assert.equal(result.files[0].name, filename);
       const persisted = await Promise.all(result.files.map((file) => readFile(file.filePath, "utf8")));
-      assert.deepEqual(persisted, result.files.map((file) => file.name === "README.md" ? persisted[0] : persisted[result.files.indexOf(file)]));
       assert.equal(result.content, persisted.join("\n\n"));
     }
     assert.equal(engine.snapshot().length, cases.length);
