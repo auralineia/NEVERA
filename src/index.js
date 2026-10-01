@@ -575,7 +575,7 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
       return { ...opportunity, score: pipelineRecord.score, pipelineId: pipelineRecord.id, applicationId: application.id };
     }
   });
-  qualifiedOpportunities.push(...proposalResults.filter(Boolean));
+  qualifiedOpportunities.push(...proposalResults.filter((item) => item && item.ok !== false));
   const revenueOffers = revenueEngine.cycle({
     opportunities: qualifiedOpportunities,
     maxOffers: requestedOfferLimit
