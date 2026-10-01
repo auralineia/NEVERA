@@ -161,8 +161,8 @@ const applicationPolicy = new ApplicationPolicy({
 
 const paymentWebhookPort = Number(process.env.NEVERA_PAYMENT_WEBHOOK_PORT ?? process.env.PORT ?? 8080);
 const paymentWebhookHost = process.env.NEVERA_PAYMENT_WEBHOOK_HOST ?? "0.0.0.0";
-const liveCheckoutEnabled = String(process.env.NEVERA_LIVE_CHECKOUTS ?? "false").toLowerCase() === "true";
-const liveExecutionMode = paymentAdapter.liveAuthorized && liveCheckoutEnabled;
+const liveCheckoutEnabled = false; // NEVERA is simulation-only; real checkout is disabled.
+const liveExecutionMode = false; // Never execute real-money operations.
 const outcomeProvider = liveExecutionMode
   ? async () => ({ status: "PENDING_PAYMENT", revenue: 0, cost: 0, net: 0 })
   : simulateOutcome;
@@ -213,7 +213,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {
+  if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {\n    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });\n    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));\n    return;\n    /* disabled live funding path */\n    /*
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
@@ -398,7 +398,7 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && req.url.startsWith("/capital/reconcile")) {
+  if (req.method === "GET" && req.url.startsWith("/capital/reconcile")) {\n    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });\n    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));\n    return;\n    /* disabled real payment reconciliation */\n    /*
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
