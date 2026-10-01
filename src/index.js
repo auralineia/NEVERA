@@ -799,17 +799,15 @@ for (let offset = 0; offset < cycleLimit && nevera.snapshot().status !== "DEAD";
   });
 
   console.log(JSON.stringify({
+    event: "CYCLE_COMPLETE",
     cycle,
+    status: nevera.snapshot().status,
+    balance: Number(nevera.snapshot().economy.balance.toFixed(2)),
     strategy: strategy.name,
-    metrics,
-    decisionStats: ledger.stats(),
-    objective,
-    decisionMemory: decisionMemory.recent(10),
-    experimentStats: experiments.stats(),
-    adaptation,
-    throughput: throughputDecision,
-    result
-  }, null, 2));
+    offersCreated: revenueOffers.length,
+    simulatedOnly: true
+  }));
+
 }
 
 const finalMetrics = calculateMetrics({
@@ -835,21 +833,10 @@ const finalOperationalState = operationalState({
 });
 
 console.log(JSON.stringify({
-  ...finalOperationalState,
-  agent: nevera.snapshot(),
-  metrics: finalMetrics,
-  decisionStats: ledger.stats(),
-  experimentStats: experiments.stats(),
-  recentDecisions: ledger.recent(5),
-  recentExperiments: experiments.recent(5),
-  explorationInterval,
-  marketEvent: dynamicMarket.lastEvent,
-  marketState: dynamicMarket.state(),
-  guardrails: guardrails.snapshot(),
-  sandbox: realSandbox.snapshot(),
-  telemetry: telemetry.snapshot(),
-  runtime: runtime.snapshot(),
-  recovery: recovery.snapshot(),
-  revenueEngine: { ...revenueEngine.snapshot(), paymentAdapter: paymentAdapter.status() },
-  persistence: "LIVE_PERSISTENCE"
-}, null, 2));
+  event: "RUNTIME_SUMMARY",
+  status: nevera.snapshot().status,
+  cycle: nevera.snapshot().cycle,
+  balance: Number(nevera.snapshot().economy.balance.toFixed(2)),
+  mode: "SIMULATION_ONLY",
+  realPayments: false
+}));

@@ -96,34 +96,8 @@ O Revenue Engine está conectado ao ciclo operacional, mas **pagamentos reais co
 O modo atual é de simulação e serve para validar oferta, preço, mercado, fluxo de cobrança, telemetria e persistência antes de qualquer movimentação financeira real.
 
 
-## Global live-operation bridge
+## Simulation-only operation
 
-A NEVERA agora possui duas pontes configuráveis para sair da simulação sem colocar segredos no GitHub:
+The deployed NEVERA is locked to simulation mode. Real checkout creation, payment reconciliation, payment redirects, and payment webhooks are disabled in the application. Simulated outcomes and balances are experimental estimates only; they are not received revenue, available funds, or a promise of profitability.
 
-### Fontes globais de oportunidades
-
-Configure `NEVERA_OPPORTUNITY_SOURCES` como uma lista separada por vírgulas:
-
-`Nome|https://dominio.exemplo/feed,Outro|https://outro.exemplo/data`
-
-A NEVERA somente acessa HTTPS e os domínios precisam estar em `NEVERA_ALLOWED_DOMAINS`.
-
-### Pagamentos
-
-A camada de pagamento usa um adaptador HTTP genérico. Ela não recebe nem armazena dados de cartão.
-
-Variáveis:
-- `NEVERA_PAYMENT_MODE=SIMULATION` (padrão) ou `LIVE`
-- `NEVERA_REAL_MONEY=false` (padrão) ou `true`
-- `NEVERA_PAYMENT_PROVIDER=HTTP`
-- `NEVERA_PAYMENT_CHECKOUT_URL=https://...`
-- `NEVERA_PAYMENT_API_SECRET=...`
-- `NEVERA_PAYMENT_WEBHOOK_SECRET=...`
-- `NEVERA_PAYMENT_RETURN_URL=https://...`
-- `NEVERA_PAYMENT_WEBHOOK_PORT=8080`
-
-No modo LIVE, os três requisitos de configuração do provedor e `NEVERA_REAL_MONEY=true` são necessários. O webhook `POST /webhooks/payments` exige assinatura HMAC SHA-256 no header `x-nevera-signature` (ou `stripe-signature`).
-
-O endpoint configurado em `NEVERA_PAYMENT_CHECKOUT_URL` deve aceitar JSON com `paymentId`, `offerId`, `amount`, `currency`, `title`, `returnUrl` e `metadata`, e retornar pelo menos `checkoutUrl` (ou `url`). O webhook deve enviar `paymentId`, `status`, `amount`/ `gross` e opcionalmente `fees`.
-
-**Importante:** essas variáveis são configuração do ambiente Railway. Nunca coloque os valores secretos em arquivos do repositório.
+Keep payment credentials out of the repository. Any future request to enable real-money operations requires a separate security review and explicit authorization.
