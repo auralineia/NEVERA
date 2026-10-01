@@ -213,7 +213,12 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {\n    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });\n    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));\n    return;\n    /* disabled live funding path */\n    /*
+  if (req.method === "GET" && req.url.startsWith("/capital/funding-checkout")) {
+    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));
+    return;
+    /* disabled live funding path */
+    /*
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
@@ -398,7 +403,12 @@ const paymentWebhookServer = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && req.url.startsWith("/capital/reconcile")) {\n    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });\n    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));\n    return;\n    /* disabled real payment reconciliation */\n    /*
+  if (req.method === "GET" && req.url.startsWith("/capital/reconcile")) {
+    res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: false, mode: "SIMULATION_ONLY", error: "REAL_CAPITAL_DISABLED" }));
+    return;
+    /* disabled real payment reconciliation */
+    /*
     const requestUrl = new URL(req.url, "http://nevera.local");
     const token = requestUrl.searchParams.get("token") ?? String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const expected = String(process.env.NEVERA_DASHBOARD_TOKEN ?? "");
