@@ -111,7 +111,7 @@ body{font-family:system-ui;margin:0;padding:20px;background:#090909;color:#eee}
 h1{margin:0}.sub{color:#888;margin:4px 0 20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .card{padding:15px;border:1px solid #333;border-radius:12px;background:#111}.label{color:#999;font-size:12px}.value{font-size:23px;font-weight:700;margin-top:5px}
 .ok{border-color:#285b3a}.warn{border-color:#665522}.wide{margin-top:12px}.section{margin-top:12px}.rows{display:grid;gap:8px}
-.row{padding:12px;border:1px solid #292929;border-radius:10px;background:#101010}.muted{color:#888;font-size:12px}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#222;margin-right:5px;font-size:12px}
+.row{padding:12px;border:1px solid #292929;border-radius:10px;background:#101010}label{display:grid;gap:5px;color:#aaa;font-size:12px}input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #383838;border-radius:8px;background:#090909;color:#eee;font:inherit}.profit{color:#7ee0a0}.loss{color:#ff9b9b}.muted{color:#888;font-size:12px}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#222;margin-right:5px;font-size:12px}
 a{color:#9ad;text-decoration:none}a:hover{text-decoration:underline}.empty{color:#777;padding:12px}
 pre{white-space:pre-wrap;overflow:auto;max-height:420px}
 </style></head><body>
@@ -119,11 +119,23 @@ pre{white-space:pre-wrap;overflow:auto;max-height:420px}
 <div id="cards" class="grid"></div>
 <div class="card wide"><h3>Oportunidades detectadas</h3><div id="opportunities" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Ofertas simuladas</h3><div id="payments" class="rows">carregando...</div></div>\n<div class="card wide"><h3>Pipeline de receita</h3><div id="pipeline" class="rows">carregando...</div></div>
+<div class="card wide"><h3>⛏️ Mineração — simulador</h3><div class="muted">Estimativa manual; não conecta a mineradoras nem consulta rentabilidade ao vivo.</div><div class="grid" style="margin-top:10px"><label>Hashrate (TH/s)<input id="mineHash" type="number" min="0" step="any" value="10"></label><label>Consumo (W)<input id="mineWatts" type="number" min="0" step="any" value="3000"></label><label>Energia (R$/kWh)<input id="minePowerCost" type="number" min="0" step="any" value="0.8"></label><label>Receita bruta (R$/TH/dia)<input id="mineGross" type="number" min="0" step="any" value="2"></label><label>Taxa do pool (%)<input id="mineFee" type="number" min="0" max="100" step="any" value="2"></label><label>Dias<input id="mineDays" type="number" min="0" step="any" value="1"></label></div><div id="mineResult" class="row" aria-live="polite"></div></div>
+<div class="card wide"><h3>📈 Bolsa — carteira simulada</h3><div class="muted">Insira preços manualmente. Não consulta cotações ao vivo nem envia ordens.</div><div class="grid" style="margin-top:10px"><label>Ativo<input id="stockSymbol" type="text" maxlength="24" value="PAPER3"></label><label>Quantidade<input id="stockQty" type="number" min="0" step="any" value="10"></label><label>Preço de entrada (R$)<input id="stockEntry" type="number" min="0" step="any" value="10"></label><label>Preço atual (R$)<input id="stockCurrent" type="number" min="0" step="any" value="12"></label><label>Taxas totais (%)<input id="stockFee" type="number" min="0" max="100" step="any" value="0.5"></label></div><div id="stockResult" class="row" aria-live="polite"></div></div>
 <div class="card wide"><h3>Aplicações e navegador</h3><div id="applications" class="rows">carregando...</div></div>
 <div class="card wide"><h3>Operação</h3><pre id="details">carregando...</pre></div>
 <script>
 function card(k,v,c=""){return '<div class="card '+c+'"><div class="label">'+k+'</div><div class="value">'+String(v??"—")+'</div></div>'}
 function esc(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function num(id){const v=Number(document.getElementById(id).value);return Number.isFinite(v)?Math.max(0,v):0}
+function brl(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function updatePaperMarkets(){
+ const hash=num('mineHash'),watts=num('mineWatts'),power=num('minePowerCost'),grossRate=num('mineGross'),fee=Math.min(100,num('mineFee')),days=num('mineDays');
+ const gross=hash*grossRate*days,kwh=watts/1000*24*days,electricity=kwh*power,pool=gross*fee/100,net=gross-electricity-pool;
+ document.getElementById('mineResult').innerHTML='<strong>RESULTADO SIMULADO</strong><div class="muted">Receita bruta: '+brl(gross)+' • Energia: '+kwh.toFixed(2)+' kWh ('+brl(electricity)+') • Taxa: '+brl(pool)+'</div><div class="'+(net>=0?'profit':'loss')+'" style="font-size:20px;font-weight:700">Líquido estimado: '+brl(net)+'</div><div class="muted">Não inclui hardware, manutenção, impostos ou variação de dificuldade/preço.</div>';
+ const qty=num('stockQty'),entry=num('stockEntry'),current=num('stockCurrent'),fees=Math.min(100,num('stockFee')),invested=qty*entry,value=qty*current,feeCost=(invested+value)*fees/100,pnl=value-invested-feeCost,ret=invested>0?pnl/invested*100:0;
+ document.getElementById('stockResult').innerHTML='<strong>'+esc(document.getElementById('stockSymbol').value||'PAPER-ASSET')+' • SIMULAÇÃO</strong><div class="muted">Custo: '+brl(invested)+' • Valor marcado: '+brl(value)+' • Taxas estimadas: '+brl(feeCost)+'</div><div class="'+(pnl>=0?'profit':'loss')+'" style="font-size:20px;font-weight:700">Resultado: '+brl(pnl)+' ('+ret.toFixed(2)+'%)</div><div class="muted">Valores e preços são inseridos manualmente; não representam recomendação ou operação executada.</div>';
+}
+
 async function refresh(){
  try{
 
@@ -152,6 +164,8 @@ async function refresh(){
   document.getElementById('details').textContent=JSON.stringify({objective:s.objective,runtime:rt,recovery:recoveryState,guardrails:g,revenue:rev,executionPipeline:pipeline,applications:s.applications,browser:s.browser,realCapital:realCapital,marketState:s.marketState,strategyLab:s.strategyLab,telemetry:s.telemetry},null,2);
  }catch(error){document.getElementById('details').textContent="DASHBOARD_ERROR: "+error}
 }
+document.querySelectorAll('#mineHash,#mineWatts,#minePowerCost,#mineGross,#mineFee,#mineDays,#stockSymbol,#stockQty,#stockEntry,#stockCurrent,#stockFee').forEach(el=>el.addEventListener('input',updatePaperMarkets));
+updatePaperMarkets();
 refresh();setInterval(refresh,2000);
 </script></body></html>`;
 
