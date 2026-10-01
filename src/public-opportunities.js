@@ -29,8 +29,8 @@ export function translatePublicSignals(scanResults = []) {
     if (!jobs.length) {
       opportunities.push({
         name: `Demanda pública: ${item.source}`,
-        category: "DIGITAL_SERVICES",
-        estimatedRevenue: 150,
+        category: "RESEARCH",
+        estimatedRevenue: 0,
         estimatedCost: 0,
         risk: 0.05,
         effort: 1,
