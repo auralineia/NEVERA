@@ -153,11 +153,16 @@ export class ExecutionEngine {
 
   #resourcesFor(category) {
     const map = {
-      RESEARCH: ["public_research"],
-      SERVICE: ["verifiable_service"],
-      PRODUCT: ["deliverable_builder"],
-      ARBITRAGE: ["public_price_analysis"],
-      EMERGING: ["public_task_executor"]
+      RESEARCH: ["simulated_research_engine"],
+      SERVICE: ["simulated_automation_engine"],
+      PRODUCT: ["simulated_product_builder"],
+      ARBITRAGE: ["simulated_arbitrage_engine"],
+      EMERGING: ["simulated_general_executor"],
+      DIGITAL_SERVICES: ["simulated_general_executor"],
+      BUSINESS_AUTOMATION: ["simulated_automation_engine"],
+      CONTENT_AND_MEDIA: ["simulated_general_executor"],
+      DATA_AND_RESEARCH: ["simulated_research_engine"],
+      APPS_AND_TOOLS: ["simulated_product_builder"]
     };
 
     return map[category] ?? [];
