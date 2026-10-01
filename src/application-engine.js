@@ -37,19 +37,32 @@ export class ApplicationEngine {
       "Posso adaptar a proposta ao escopo específico e fornecer um entregável pronto para revisão."
     ].join("\n");
     let proposal = fallback;
+    record.generationStatus = "LOCAL_FALLBACK";
     if (this.generator?.configured) {
-      const generated = await this.generator.generate({
-        system: "Write a truthful, concise freelance proposal. Never invent credentials, experience, clients, results or certifications.",
-        prompt: JSON.stringify({
-          title: opportunity.title ?? opportunity.name,
-          company: opportunity.company,
-          description: opportunity.description,
-          category: opportunity.category,
-          evidence: opportunity.signal ?? opportunity.sourceUrl ?? opportunity.url
-        }),
-        maxTokens: 900
-      });
-      if (generated?.trim()) proposal = generated.trim();
+      try {
+        const generated = await this.generator.generate({
+          system: "Write a truthful, concise freelance proposal. Never invent credentials, experience, clients, results or certifications.",
+          prompt: JSON.stringify({
+            title: opportunity.title ?? opportunity.name,
+            company: opportunity.company,
+            description: opportunity.description,
+            category: opportunity.category,
+            evidence: opportunity.signal ?? opportunity.sourceUrl ?? opportunity.url
+          }),
+          maxTokens: 900
+        });
+        if (generated?.trim()) {
+          proposal = generated.trim();
+          record.generationStatus = "GENERATED";
+          record.generationError = null;
+        }
+      } catch (error) {
+        // Provider outages/rate limits must not crash the worker or block a usable draft.
+        const message = String(error?.message ?? "GENERATION_FAILED");
+        const match = message.match(/HTTP_(\\d{3})/);
+        record.generationStatus = "LOCAL_FALLBACK";
+        record.generationError = match ? "PROVIDER_HTTP_" + match[1] : "PROVIDER_UNAVAILABLE";
+      }
     }
     record.proposal = proposal;
     record.status = "READY";
