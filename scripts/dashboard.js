@@ -81,9 +81,9 @@ function publicState(state) {
       liveAuthorized: false,
       offersCreated: revenueEngine.stats?.offersCreated ?? 0,
       paymentsPending: revenueEngine.stats?.paymentsPending ?? 0,
-      paymentsConfirmed: revenueEngine.stats?.paymentsConfirmed ?? 0,
-      grossRevenue: revenueEngine.stats?.grossRevenue ?? 0,
-      netRevenue: revenueEngine.stats?.netRevenue ?? 0,
+      paymentsConfirmed: 0,
+      grossRevenue: 0,
+      netRevenue: 0,
       offers: offers.slice(-20),
       payments: payments.slice(-20).map((payment) => ({
         id: payment.id,
@@ -126,22 +126,22 @@ function card(k,v,c=""){return '<div class="card '+c+'"><div class="label">'+k+'
 function esc(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 async function refresh(){
  try{
-  await fetch('/capital/reconcile',{cache:'no-store'}).catch(()=>null);
+
   const r=await fetch('/state',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
   const s=await r.json(), e=s.metrics||{},g=s.guardrails||{},rt=s.runtime||{},recoveryState=s.recovery||{}, realCapital=s.realCapital||{}, rev=s.revenue||{};
   const status=s.status||"UNKNOWN", heartbeat=s.autonomousRuntime?.heartbeatAt||"—", pipeline=s.executionPipeline||{stats:{},records:[]};
   document.getElementById('cards').innerHTML=[
    card("Saldo virtual",s.balance),card("Capital real","DESATIVADO","warn"),card("Ciclo",s.cycle),card("Status",status,status==="ALIVE"?"ok":"warn"),card("Resultado simulado",e.net),
    card("Drawdown",e.maxDrawdown),card("Perdas",g.losses),card("Cooldown",g.cooldownRemaining,g.cooldownRemaining>0?"warn":"ok"),
-   card("Receita confirmada",rev.netRevenue??0),card("Pagamentos",rev.paymentsConfirmed??0),card("Capital status",realCapital.fundingStatus??"AGUARDANDO"),
-   card("Live",rev.liveAuthorized?"ATIVO":"BLOQUEADO",rev.liveAuthorized?"ok":"warn"),card("Restarts",recoveryState.restarts??0,recoveryState.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok"),card("Qualificadas",pipeline.stats?.qualified??0),card("Propostas",pipeline.stats?.proposalsReady??0),card("Em execução",pipeline.stats?.inProgress??0),card("Entregues",pipeline.stats?.delivered??0)
+    card("Ganhos simulados",e.net??0),card("Pagamentos reais","DESATIVADOS","warn"),card("Modo","SIMULAÇÃO","ok"),
+   card("Live","DESATIVADO","warn"),card("Restarts",recoveryState.restarts??0,recoveryState.restarts>0?"warn":"ok"),card("Heartbeat",heartbeat,"ok"),card("Qualificadas",pipeline.stats?.qualified??0),card("Propostas",pipeline.stats?.proposalsReady??0),card("Em execução",pipeline.stats?.inProgress??0),card("Entregues",pipeline.stats?.delivered??0)
   ].join('');
 
   const ops=(s.opportunities||[]).slice().reverse();
   document.getElementById('opportunities').innerHTML=ops.length?ops.map(o=>'<div class="row"><strong>'+esc(o.name)+'</strong><div class="muted">'+esc(o.source)+' • '+esc(o.signal)+'</div><span class="pill">score: '+esc(o.score??"—")+'</span><span class="pill">'+esc(o.category??"RESEARCH")+'</span>'+(o.url?'<div><a href="'+esc(o.url)+'" target="_blank" rel="noopener">Abrir fonte</a></div>':'')+'</div>').join(''):'<div class="empty">Nenhuma oportunidade registrada ainda.</div>';
 
   const payments=(rev.payments||[]).slice().reverse();
-  document.getElementById('payments').innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: '+esc(p.status)+' • checkout: '+esc(p.checkoutStatus??"—")+'</div>'+(p.checkoutUrl?'<div><a href="'+esc(p.checkoutUrl)+'" target="_blank" rel="noopener">Abrir checkout</a></div>':'')+(p.checkoutError?'<div class="muted">Erro: '+esc(p.checkoutError)+'</div>':'')+'</div>').join(''):'<div class="empty">Nenhum checkout/pagamento registrado ainda.</div>';
+  document.getElementById("payments").innerHTML=payments.length?payments.map(p=>'<div class="row"><strong>'+esc(p.id)+'</strong> • '+esc(p.amount)+' '+esc(p.currency)+'<div class="muted">Oferta: '+esc(p.offerId)+' • status: SIMULADO</div></div>').join(""):'<div class="empty">Nenhuma oferta simulada registrada ainda.</div>';
 
   const browser=s.browser||{}, apps=(s.applications||[]).slice().reverse();
   document.getElementById('applications').innerHTML='<div class="row"><strong>Navegador: '+(browser.automationEnabled?'ATIVO':'MODO RASCUNHO')+'</strong><div class="muted">Domínios autorizados: '+esc((browser.allowDomains||[]).join(', ')||'nenhum')+'</div></div>'+(apps.length?apps.slice(0,20).map(a=>'<div class="row"><strong>'+esc(a.title)+'</strong><div class="muted">'+esc(a.id)+' • '+esc(a.status)+' • política: '+esc(a.policy)+'</div>'+(a.proposal?'<pre>'+esc(a.proposal)+'</pre>':'')+'</div>').join(''):'<div class="empty">Nenhuma aplicação preparada.</div>');
